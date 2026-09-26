@@ -209,3 +209,12 @@ classic 2p  levels relaxed / standard  games 400
   margins 1:33 2:23 3:28 4:38 5:54 6:39 7:37 8:33 9:35 10:42 11:17 12:13 13:4 14:4
   wall 1.4 s
 
+classic 2p  levels expert / standard  games 400
+  wins by side: side 0 288 (72.0%), side 1 112 (28.0%)
+  first-dealer side won 49.8%; hands: non-dealer ahead 745, dealer ahead 732, even 229
+  illegal moves 0, crashes 0, unfinished 0
+  decisions 61416, mean 9.57 ms, max 168.9 ms
+  hands 1706 (4.3/match), points/hand by side 2.58 / 1.87
+  margins 1:26 2:45 3:44 4:58 5:46 6:43 7:31 8:30 9:24 10:26 11:11 12:11 13:2 14:2 15:1
+  wall 589.0 s
+

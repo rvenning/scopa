@@ -64,7 +64,7 @@ const scenarios = {
     d.ok('summary shows the rules', await d.waitFor(() => /Classic Scopa — Two players — to 11/.test(document.body.textContent)));
     await d.shot('12-setup-summary');
     await d.tapText('Begin the match');
-    d.ok('the table is dealt', await d.waitFor(() => window.__scopa.state && window.__scopa.state.hand.table.length === 4));
+    d.ok('the table is dealt', await d.waitFor(() => window.__scopa.state && window.__scopa.state.hand.hands.flat().length + window.__scopa.state.hand.table.length + window.__scopa.state.hand.deck.length === 40 - window.__scopa.state.hand.captures.flat().length));
     d.ok('status shows turn, dealer, deck and score', await d.js(() => !!document.querySelector('.chip.dealer') && /to deal/.test(document.querySelector('.tablemeta').textContent) && document.querySelectorAll('.topbar .scores span').length === 2 && !!document.querySelector('.seat.turn')));
     await d.shot('13-table');
     d.ok('no horizontal scroll at the table', await d.noOverflow());

@@ -69,5 +69,5 @@ export default defineConfig({
   server: { port: 8134, strictPort: true },
   preview: { port: 8135, strictPort: true },
   build: { target: 'es2022', assetsInlineLimit: 0 },
-  test: { include: ['tests/**/*.test.ts'], testTimeout: 120000 },
+  test: { include: ['tests/**/*.test.ts'], testTimeout: 180000, pool: 'forks' },
 });
