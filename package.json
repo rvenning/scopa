@@ -1,0 +1,30 @@
+{
+  "name": "scopa",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Scopa — the traditional Italian card game, offline-first, with six presets, pass-and-play and three AI levels.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 8135 --strictPort",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "sim": "node tools/simulate.ts",
+    "export-art": "node tools/export-art.ts",
+    "icons": "node tools/make-icons.ts",
+    "e2e": "node tests/e2e/run.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.4",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.6",
+    "vitest": "^3.2.7"
+  },
+  "dependencies": {
+    "@fontsource-variable/cormorant-garamond": "^5.3.0",
+    "@fontsource-variable/eb-garamond": "^5.3.0"
+  }
+}
