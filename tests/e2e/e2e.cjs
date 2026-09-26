@@ -294,6 +294,52 @@ const scenarios = {
     d.ok('the in-progress match survived the update exactly', after === before);
   },
 
+  async fullMatchesAllAiAndHuman(d) {
+    const finishMatch = async (label, maxMs) => {
+      const t0 = Date.now();
+      while (Date.now() - t0 < maxMs) {
+        const st = await d.js(() => {
+          const s = window.__scopa.state;
+          if (!s) return 'none';
+          if (s.phase === 'matchEnd' && document.querySelector('.score-total')) return 'over';
+          if (document.querySelector('.score-total')) return 'score';
+          if (document.querySelector('.score-row')) return 'reveal';
+          const human = s.setup.seats[s.hand.turn].kind === 'human';
+          return human && document.querySelector('.hand .card[data-card]') ? 'mine' : 'wait';
+        });
+        if (st === 'over') return true;
+        if (st === 'score') await d.tapText('Next hand');
+        else if (st === 'reveal') await d.tapText('Show all', 'button', 5).catch(() => undefined);
+        else if (st === 'mine') await humanMove(d, Math.floor(Math.random() * 3));
+        else await d.wait(200);
+      }
+      return false;
+    };
+    // 1. All-AI watched match, via the setup screen.
+    await prime(d, { settings: { aiSpeed: 0.05, animationSpeed: 4 } });
+    await d.tapText('New game');
+    await d.tapText('Next: Players');
+    await d.tapText('Next: Seats');
+    await d.js(() => { const s = document.getElementById('seat-k-0'); s.value = 'expert'; s.dispatchEvent(new Event('change')); });
+    d.ok('all seats are computer players', await d.waitFor(() => /you will watch the match/.test(document.body.textContent)));
+    for (const label of ['Next: Scoring', 'Next: Look', 'Next: Begin']) await d.tapText(label);
+    await d.tapText('Begin the match');
+    d.ok('an all-AI match plays itself to a winner', await finishMatch('all-ai', 240000));
+    await d.shot('80-all-ai-end');
+    // 2. A person against the computer, set up through the UI, played to the end.
+    await d.tapText('Home');
+    await d.tapText('New game');
+    await d.tapText('Next: Players');
+    await d.tapText('Next: Seats');
+    await d.js(() => { const s = document.getElementById('seat-k-0'); s.value = 'human'; s.dispatchEvent(new Event('change')); });
+    await d.js(() => { const s = document.getElementById('seat-k-1'); s.value = 'relaxed'; s.dispatchEvent(new Event('change')); });
+    for (const label of ['Next: Scoring', 'Next: Look', 'Next: Begin']) await d.tapText(label);
+    await d.tapText('Begin the match');
+    d.ok('a person plays a complete match to victory or defeat', await finishMatch('human', 400000));
+    await d.shot('81-human-match-end');
+    d.ok('statistics count both matches', await d.js(() => JSON.parse(localStorage.getItem('scopa:stats')).matchesPlayed === 2));
+  },
+
   async orientationAndMotion(d) {
     await prime(d, { fixture: FIX.multi, settings: { reducedMotion: 'on' } });
     await d.tapText('Continue match');

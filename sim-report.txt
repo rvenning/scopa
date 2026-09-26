@@ -1,0 +1,211 @@
+== Seat / dealer bias: every preset, equal Standard seats ==
+
+classic 2p  levels standard  games 200
+  wins by side: side 0 97 (48.5%), side 1 103 (51.5%)
+  first-dealer side won 50.5%; hands: non-dealer ahead 421, dealer ahead 353, even 109
+  illegal moves 0, crashes 0, unfinished 0
+  decisions 31788, mean 0.02 ms, max 2.0 ms
+  hands 883 (4.4/match), points/hand by side 2.16 / 2.20
+  margins 1:18 2:19 3:30 4:27 5:22 6:25 7:17 8:12 9:13 10:5 11:4 12:7 14:1
+  wall 1.1 s
+
+classic 3p  levels standard  games 200
+  wins by side: side 0 62 (31.0%), side 1 69 (34.5%), side 2 69 (34.5%)
+  first-dealer side won 33.5%; hands: non-dealer ahead 0, dealer ahead 0, even 0
+  illegal moves 0, crashes 0, unfinished 0
+  decisions 40500, mean 0.02 ms, max 2.3 ms
+  hands 1125 (5.6/match), points/hand by side 1.45 / 1.50 / 1.50
+  margins 1:30 2:31 3:31 4:29 5:23 6:19 7:14 8:14 9:6 10:3
+  wall 1.2 s
+
+classic 4p  levels standard  games 200
+  wins by side: side 0 44 (22.0%), side 1 44 (22.0%), side 2 51 (25.5%), side 3 61 (30.5%)
+  first-dealer side won 23.0%; hands: non-dealer ahead 0, dealer ahead 0, even 0
+  illegal moves 0, crashes 0, unfinished 0
+  decisions 51768, mean 0.03 ms, max 35.2 ms
+  hands 1438 (7.2/match), points/hand by side 1.08 / 1.01 / 1.05 / 1.16
+  margins 1:30 2:39 3:40 4:33 5:27 6:16 7:5 8:4 9:4 10:2
+  wall 2.7 s
+
+classic 4t  levels standard  games 200
+  wins by side: side 0 105 (52.5%), side 1 95 (47.5%)
+  first-dealer side won 51.5%; hands: non-dealer ahead 409, dealer ahead 391, even 106
+  illegal moves 0, crashes 0, unfinished 0
+  decisions 32616, mean 0.02 ms, max 0.7 ms
+  hands 906 (4.5/match), points/hand by side 2.17 / 2.11
+  margins 1:16 2:17 3:28 4:35 5:22 6:22 7:25 8:18 9:6 10:6 11:1 12:3 16:1
+  wall 1.2 s
+
+scopone 4t  levels standard  games 200
+  wins by side: side 0 90 (45.0%), side 1 110 (55.0%)
+  first-dealer side won 52.5%; hands: non-dealer ahead 303, dealer ahead 435, even 114
+  illegal moves 0, crashes 0, unfinished 0
+  decisions 30672, mean 0.05 ms, max 1.3 ms
+  hands 852 (4.3/match), points/hand by side 2.19 / 2.31
+  margins 1:10 2:31 3:22 4:20 5:19 6:26 7:21 8:11 9:9 10:7 11:13 12:5 13:4 14:2
+  wall 1.9 s
+
+scientifico 4t  levels standard  games 200
+  wins by side: side 0 105 (52.5%), side 1 95 (47.5%)
+  first-dealer side won 61.0%; hands: non-dealer ahead 193, dealer ahead 974, even 90
+  illegal moves 0, crashes 0, unfinished 0
+  decisions 50280, mean 0.04 ms, max 0.6 ms
+  hands 1257 (6.3/match), points/hand by side 3.04 / 2.96
+  margins 1:5 2:11 3:11 4:16 5:19 6:17 7:18 8:16 9:10 10:13 11:16 12:14 13:11 14:8 15:3 16:3 17:2 18:1 19:2 20:2 21:1 27:1
+  wall 2.8 s
+
+assi 2p  levels standard  games 200
+  wins by side: side 0 102 (51.0%), side 1 98 (49.0%)
+  first-dealer side won 45.0%; hands: non-dealer ahead 416, dealer ahead 313, even 95
+  illegal moves 0, crashes 0, unfinished 0
+  decisions 29664, mean 0.01 ms, max 0.4 ms
+  hands 824 (4.1/match), points/hand by side 2.33 / 2.35
+  margins 1:14 2:26 3:20 4:16 5:31 6:19 7:20 8:23 9:14 10:5 11:6 12:4 13:2
+  wall 0.7 s
+
+assi 3p  levels standard  games 200
+  wins by side: side 0 70 (35.0%), side 1 66 (33.0%), side 2 64 (32.0%)
+  first-dealer side won 38.5%; hands: non-dealer ahead 0, dealer ahead 0, even 0
+  illegal moves 0, crashes 0, unfinished 0
+  decisions 38736, mean 0.01 ms, max 0.3 ms
+  hands 1076 (5.4/match), points/hand by side 1.62 / 1.54 / 1.58
+  margins 1:31 2:27 3:33 4:27 5:24 6:24 7:17 8:4 9:7 10:5 12:1
+  wall 1.0 s
+
+assi 4p  levels standard  games 200
+  wins by side: side 0 42 (21.0%), side 1 59 (29.5%), side 2 42 (21.0%), side 3 57 (28.5%)
+  first-dealer side won 27.5%; hands: non-dealer ahead 0, dealer ahead 0, even 0
+  illegal moves 0, crashes 0, unfinished 0
+  decisions 46080, mean 0.02 ms, max 0.4 ms
+  hands 1280 (6.4/match), points/hand by side 1.13 / 1.24 / 1.14 / 1.22
+  margins 1:33 2:32 3:43 4:32 5:24 6:15 7:13 8:6 10:1 11:1
+  wall 1.4 s
+
+assi 4t  levels standard  games 200
+  wins by side: side 0 116 (58.0%), side 1 84 (42.0%)
+  first-dealer side won 49.5%; hands: non-dealer ahead 392, dealer ahead 326, even 99
+  illegal moves 0, crashes 0, unfinished 0
+  decisions 29412, mean 0.02 ms, max 0.4 ms
+  hands 817 (4.1/match), points/hand by side 2.49 / 2.21
+  margins 1:18 2:19 3:21 4:27 5:24 6:18 7:16 8:16 9:13 10:13 11:8 12:2 13:1 14:2 15:2
+  wall 0.9 s
+
+quindici 2p  levels standard  games 200
+  wins by side: side 0 105 (52.5%), side 1 95 (47.5%)
+  first-dealer side won 50.5%; hands: non-dealer ahead 347, dealer ahead 279, even 89
+  illegal moves 0, crashes 0, unfinished 0
+  decisions 25740, mean 0.02 ms, max 0.6 ms
+  hands 715 (3.6/match), points/hand by side 2.83 / 2.75
+  margins 1:8 2:24 3:25 4:27 5:28 6:21 7:19 8:14 9:11 10:14 11:4 12:3 13:1 15:1
+  wall 0.7 s
+
+quindici 3p  levels standard  games 200
+  wins by side: side 0 67 (33.5%), side 1 73 (36.5%), side 2 60 (30.0%)
+  first-dealer side won 31.5%; hands: non-dealer ahead 0, dealer ahead 0, even 0
+  illegal moves 0, crashes 0, unfinished 0
+  decisions 31788, mean 0.02 ms, max 0.5 ms
+  hands 883 (4.4/match), points/hand by side 1.99 / 1.94 / 1.93
+  margins 1:29 2:26 3:34 4:30 5:22 6:18 7:19 8:8 9:5 10:5 11:3 13:1
+  wall 1.0 s
+
+quindici 4p  levels standard  games 200
+  wins by side: side 0 52 (26.0%), side 1 51 (25.5%), side 2 52 (26.0%), side 3 45 (22.5%)
+  first-dealer side won 24.5%; hands: non-dealer ahead 0, dealer ahead 0, even 0
+  illegal moves 0, crashes 0, unfinished 0
+  decisions 38808, mean 0.03 ms, max 1.0 ms
+  hands 1078 (5.4/match), points/hand by side 1.43 / 1.42 / 1.44 / 1.37
+  margins 1:30 2:29 3:43 4:30 5:20 6:16 7:20 8:6 9:1 10:4 11:1
+  wall 1.6 s
+
+quindici 4t  levels standard  games 200
+  wins by side: side 0 95 (47.5%), side 1 105 (52.5%)
+  first-dealer side won 51.0%; hands: non-dealer ahead 367, dealer ahead 269, even 63
+  illegal moves 0, crashes 0, unfinished 0
+  decisions 25164, mean 0.03 ms, max 0.7 ms
+  hands 699 (3.5/match), points/hand by side 2.80 / 2.93
+  margins 1:15 2:19 3:31 4:30 5:17 6:20 7:18 8:21 9:4 10:10 11:9 12:3 13:2 15:1
+  wall 1.0 s
+
+napola 2p  levels standard  games 200
+  wins by side: side 0 114 (57.0%), side 1 86 (43.0%)
+  first-dealer side won 44.0%; hands: non-dealer ahead 639, dealer ahead 547, even 117
+  illegal moves 0, crashes 0, unfinished 0
+  decisions 46908, mean 0.01 ms, max 0.4 ms
+  hands 1303 (6.5/match), points/hand by side 2.87 / 2.68
+  margins 1:4 2:9 3:9 4:18 5:10 6:10 7:9 8:14 9:11 10:10 11:15 12:10 13:7 14:16 15:13 16:5 17:8 18:7 19:4 20:3 21:4 22:2 23:1 24:1
+  wall 1.2 s
+
+napola 3p  levels standard  games 200
+  wins by side: side 0 60 (30.0%), side 1 66 (33.0%), side 2 74 (37.0%)
+  first-dealer side won 32.0%; hands: non-dealer ahead 0, dealer ahead 0, even 0
+  illegal moves 0, crashes 0, unfinished 0
+  decisions 72432, mean 0.01 ms, max 0.7 ms
+  hands 2012 (10.1/match), points/hand by side 1.59 / 1.63 / 1.70
+  margins 1:12 2:23 3:24 4:21 5:26 6:13 7:16 8:15 9:12 10:7 11:4 12:6 13:8 14:6 15:5 16:1 18:1
+  wall 1.9 s
+
+napola 4p  levels standard  games 200
+  wins by side: side 0 46 (23.0%), side 1 56 (28.0%), side 2 54 (27.0%), side 3 44 (22.0%)
+  first-dealer side won 27.0%; hands: non-dealer ahead 0, dealer ahead 0, even 0
+  illegal moves 0, crashes 0, unfinished 0
+  decisions 96228, mean 0.02 ms, max 2.0 ms
+  hands 2673 (13.4/match), points/hand by side 1.15 / 1.16 / 1.15 / 1.13
+  margins 1:20 2:23 3:27 4:25 5:28 6:15 7:18 8:11 9:8 10:9 11:4 12:3 13:2 14:2 15:3 16:1 18:1
+  wall 3.3 s
+
+napola 4t  levels standard  games 200
+  wins by side: side 0 100 (50.0%), side 1 100 (50.0%)
+  first-dealer side won 44.0%; hands: non-dealer ahead 629, dealer ahead 561, even 108
+  illegal moves 0, crashes 0, unfinished 0
+  decisions 46728, mean 0.02 ms, max 0.6 ms
+  hands 1298 (6.5/match), points/hand by side 2.76 / 2.78
+  margins 1:6 2:5 3:5 4:17 5:14 6:12 7:16 8:15 9:8 10:10 11:12 12:14 13:14 14:10 15:5 16:6 17:10 18:3 19:9 20:3 21:2 22:3 24:1
+  wall 1.6 s
+
+cirulla 4t  levels standard  games 200
+  wins by side: side 0 107 (53.5%), side 1 93 (46.5%)
+  first-dealer side won 46.0%; hands: non-dealer ahead 548, dealer ahead 492, even 56
+  illegal moves 0, crashes 0, unfinished 0
+  decisions 39456, mean 0.03 ms, max 1.0 ms
+  hands 1096 (5.5/match), points/hand by side 8.89 / 8.61
+  margins -1:1 1:6 2:6 3:2 4:6 5:4 6:9 7:7 8:7 9:5 10:9 11:4 12:9 13:6 14:10 15:10 16:9 17:9 18:9 19:4 20:10 21:6 22:7 23:5 24:4 25:7 26:6 27:3 29:3 30:2 31:3 32:1 33:3 35:3 37:1 40:1 41:1 43:1 44:1
+  wall 1.6 s
+
+cirulla 2p  levels standard  games 200
+  wins by side: side 0 95 (47.5%), side 1 105 (52.5%)
+  first-dealer side won 51.5%; hands: non-dealer ahead 578, dealer ahead 488, even 38
+  illegal moves 0, crashes 0, unfinished 0
+  decisions 39744, mean 0.02 ms, max 0.5 ms
+  hands 1104 (5.5/match), points/hand by side 8.68 / 8.86
+  margins 1:9 2:8 3:3 4:6 5:5 6:8 7:7 8:7 9:4 10:7 11:8 12:7 13:11 14:9 15:7 16:6 17:4 18:6 19:5 20:8 21:10 22:4 23:11 24:2 25:1 26:6 27:3 28:2 29:2 30:3 31:6 32:1 33:4 34:1 35:1 36:3 37:1 38:1 39:1 46:1 53:1
+  wall 1.2 s
+
+cirulla 3p  levels standard  games 200
+  wins by side: side 0 70 (35.0%), side 1 62 (31.0%), side 2 68 (34.0%)
+  first-dealer side won 27.0%; hands: non-dealer ahead 0, dealer ahead 0, even 0
+  illegal moves 0, crashes 0, unfinished 0
+  decisions 59940, mean 0.02 ms, max 0.5 ms
+  hands 1665 (8.3/match), points/hand by side 5.41 / 5.26 / 5.45
+  margins 1:7 2:9 3:12 4:16 5:13 6:9 7:13 8:9 9:10 10:13 11:6 12:10 13:7 14:9 15:6 16:11 17:9 18:1 19:3 20:7 21:2 22:4 23:4 24:3 25:1 29:2 31:2 37:1 39:1
+  wall 1.8 s
+
+== Difficulty ladder (Classic 2p, both seat orders) ==
+
+classic 2p  levels standard / relaxed  games 400
+  wins by side: side 0 315 (78.8%), side 1 85 (21.3%)
+  first-dealer side won 51.8%; hands: non-dealer ahead 706, dealer ahead 756, even 204
+  illegal moves 0, crashes 0, unfinished 0
+  decisions 59976, mean 0.01 ms, max 1.4 ms
+  hands 1666 (4.2/match), points/hand by side 2.77 / 1.75
+  margins 1:36 2:41 3:34 4:40 5:34 6:37 7:40 8:43 9:30 10:23 11:20 12:13 13:5 14:3 15:1
+  wall 1.4 s
+
+classic 2p  levels relaxed / standard  games 400
+  wins by side: side 0 81 (20.3%), side 1 319 (79.8%)
+  first-dealer side won 51.3%; hands: non-dealer ahead 757, dealer ahead 693, even 196
+  illegal moves 0, crashes 0, unfinished 0
+  decisions 59256, mean 0.01 ms, max 0.4 ms
+  hands 1646 (4.1/match), points/hand by side 1.69 / 2.78
+  margins 1:33 2:23 3:28 4:38 5:54 6:39 7:37 8:33 9:35 10:42 11:17 12:13 13:4 14:4
+  wall 1.4 s
+

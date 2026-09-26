@@ -15,7 +15,7 @@
     "sim": "node tools/simulate.ts",
     "export-art": "node tools/export-art.ts",
     "icons": "node tools/make-icons.ts",
-    "e2e": "node tests/e2e/run.ts"
+    "e2e": "node tests/e2e/e2e.cjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.4",
