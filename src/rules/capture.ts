@@ -120,13 +120,13 @@ export function findOption(options: CaptureOption[], takes: readonly CardId[], k
 /** Human-readable arithmetic for a capture, e.g. "7 = 3 + 4" or "6 + 4 + 5 = 15". */
 export function optionEquation(rules: RulesConfig, played: CardId, o: CaptureOption): string {
   const v = valueOf(played);
-  const vals = o.takes.map(valueOf);
+  const vals = o.takes.map(valueOf).sort((a, b) => a - b);
   switch (o.kind) {
     case 'match': return `${v} = ${vals[0]}`;
     case 'sum': return `${v} = ${vals.join(' + ')}`;
     case 'fifteen': return `${v} + ${vals.join(' + ')} = 15`;
     case 'aceSweep': return 'Ace takes the whole table';
     case 'aceSelf': return 'Ace takes itself';
-    case 'place': return rules.capture.mode === 'fifteen' ? 'Nothing makes 15 — the card is placed' : 'No capture — the card is placed';
+    case 'place': return rules.capture.mode === 'fifteen' ? 'Nothing makes 15 — the card is placed on the table' : 'No capture — the card is placed on the table';
   }
 }

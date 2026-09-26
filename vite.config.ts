@@ -26,7 +26,7 @@ function serviceWorker(): Plugin {
     generateBundle(_options, bundle) {
       const files = Object.keys(bundle).filter((f) => !f.endsWith('.map') && !(f.endsWith('.woff2') && !/-latin-/.test(f)) && !f.endsWith('.woff'));
       const publicFiles = ['manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png'];
-      const all = ['./', ...files, ...publicFiles];
+      const all = ['./', ...files.filter((f) => f !== 'index.html'), 'index.html', ...publicFiles];
       const hash = createHash('sha256');
       for (const f of files) {
         const item = bundle[f];
