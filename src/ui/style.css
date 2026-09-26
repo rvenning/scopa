@@ -192,8 +192,10 @@ table.rt td, table.rt th { border-bottom: 1px solid var(--cream-line); padding: 
 
 .seat { display: flex; align-items: center; gap: 8px; padding: 5px 10px; overflow: hidden; border-radius: 16px; background: linear-gradient(160deg, rgba(255,255,255,.075), rgba(0, 0, 0, .24)); border: 1.5px solid var(--table-line); min-width: 0; position: relative; box-shadow: inset 0 1px rgba(255,255,255,.07), 0 5px 15px rgba(15,6,2,.1); transition: border-color var(--t-mid), box-shadow var(--t-mid), transform var(--t-mid) var(--ease); }
 [data-table='marble'] .seat { background: rgba(255,255,255,.4); }
-.seat.turn { border-color: #ffe0a0; box-shadow: 0 0 0 2px rgba(255, 217, 138, .46), 0 0 24px rgba(255, 200, 100, .3), inset 0 1px rgba(255,255,255,.16); animation: turn-breathe calc(2.2s * var(--anim)) ease-in-out infinite; }
-@keyframes turn-breathe { 50% { box-shadow: 0 0 0 3px rgba(255,217,138,.3), 0 0 32px rgba(255,200,100,.42), inset 0 1px rgba(255,255,255,.16); } }
+.seat.turn { border-color: #ffe0a0; box-shadow: 0 0 0 2px rgba(255, 217, 138, .46), 0 0 24px rgba(255, 200, 100, .3), inset 0 1px rgba(255,255,255,.16); }
+/* The breathing glow animates only the opacity of an inner layer, so it is composited instead of repainted every frame. */
+.seat.turn::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; box-shadow: inset 0 0 14px rgba(255, 210, 120, .45); opacity: 0; animation: turn-breathe calc(2.2s * var(--anim)) ease-in-out infinite; }
+@keyframes turn-breathe { 50% { opacity: 1; } }
 .seat.vertical { flex-direction: column; text-align: center; padding: 6px 4px; width: 86px; max-width: 86px; overflow: hidden; }
 .seat.vertical .nm { max-width: 78px; font-size: .9rem; }
 .seat.vertical .avatar { width: 30px; height: 30px; font-size: .85rem; }
@@ -222,10 +224,15 @@ table.rt td, table.rt th { border-bottom: 1px solid var(--cream-line); padding: 
 .tray .opt-btn { font-size: 1.05rem; padding: .3em .7em; min-height: 44px; }
 .tray .msg { font-size: .95rem; line-height: 1.25; padding: 3px 12px; border-radius: var(--r-pill); background: rgba(18,8,2,.17); text-shadow: 0 1px 1px rgba(0,0,0,.28); }
 .tray .btn { min-height: 46px; }
+.tray .btn.ghost { color: inherit; }
 .opt-btn .num { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--ink); color: var(--paper); font-size: .85rem; }
 .opt-btn[aria-pressed='true'] { background: #fff1c9; border-color: var(--accent); }
 .equation { font-variant-numeric: tabular-nums; }
-.hand { grid-area: hand; display: flex; justify-content: center; align-items: flex-end; padding: 4px 8px 10px; gap: calc(var(--hw) * .08); min-height: calc(var(--hw) * 1.6 + 26px); touch-action: none; }
+/* The top padding is headroom for the selected card, which rises by a fifth of its height and grows slightly;
+   in portrait the "You" row above the hand takes part of the rise. */
+.hand { --lift-room: .12; grid-area: hand; display: flex; justify-content: center; align-items: flex-end; padding: calc(var(--hw) * var(--lift-room) + 4px) 8px 10px; gap: calc(var(--hw) * .08); min-height: calc(var(--hw) * (1.6 + var(--lift-room)) + 14px); touch-action: none; }
+/* In landscape the tray sits directly above the hand, with no seat row between them to absorb the rise. */
+.table-screen.landscape .hand { --lift-room: .4; }
 .hand.fan { gap: 0; }
 .hand.fan .card { margin-left: calc(var(--hw) * var(--overlap, -.2)); }
 .hand.fan .card:first-child { margin-left: 0; }
@@ -306,7 +313,7 @@ table.rt td, table.rt th { border-bottom: 1px solid var(--cream-line); padding: 
 @media (prefers-reduced-motion: reduce) { :root { --anim: 0.01; } }
 .reduced { --anim: 0.01; }
 .reduced .card.selected { transform: none; box-shadow: 0 0 0 4px #ffd98a; }
-.reduced .seat.turn, .reduced .card.legal { animation: none; }
+.reduced .seat.turn::after, .reduced .card.legal { animation: none; }
 
 @media (min-width: 1100px) {
   .table-screen { padding-inline: max(0px, calc((100vw - 1180px) / 2)); }

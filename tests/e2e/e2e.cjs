@@ -207,7 +207,7 @@ const scenarios = {
   async deviceMatrix(d) {
     const sizes = [
       ['iphone-se', 320, 568, 2], ['iphone-15', 393, 852, 3], ['iphone-15-land', 852, 393, 3], ['pixel-7', 412, 915, 2.6], ['android-land', 915, 412, 2.6],
-      ['ipad-port', 768, 1024, 2], ['ipad-land', 1024, 768, 2], ['desktop', 1440, 900, 1], ['desktop-small', 1024, 640, 1],
+      ['ipad-port', 768, 1024, 2], ['ipad-land', 1024, 768, 2], ['desktop', 1440, 900, 1], ['desktop-small', 1024, 640, 1], ['laptop-125pct', 1600, 860, 1], ['desktop-wide', 2000, 990, 1],
     ];
     const check = () => {
       const vw = innerWidth, vh = innerHeight;
@@ -218,7 +218,7 @@ const scenarios = {
       // Regions must not collide, and nothing may be cut off inside a seat panel.
       const boxes = (sel) => [...document.querySelectorAll(sel)].map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0);
       const hit = (a, b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
-      for (const [x, y] of [['.seat', '.tray .msg'], ['.seat', '.tray button'], ['.seat', '.table-cards .card'], ['.hand .card', '.tray button'], ['.table-cards .card', '.tray .msg'], ['.tablemeta', '.table-cards .card']]) for (const a of boxes(x)) for (const b of boxes(y)) if (hit(a, b)) bad.push(`${x} overlaps ${y}`);
+      for (const [x, y] of [['.seat', '.tray .msg'], ['.seat', '.tray button'], ['.seat', '.table-cards .card'], ['.hand .card', '.tray button'], ['.hand .card', '.tray .msg'],['.table-cards .card', '.tray .msg'], ['.tablemeta', '.table-cards .card']]) for (const a of boxes(x)) for (const b of boxes(y)) if (hit(a, b)) bad.push(`${x} overlaps ${y} [${[a.top, a.bottom, b.top, b.bottom].map(Math.round)}]`);
       document.querySelectorAll('.seat').forEach((e) => { if (e.scrollWidth > e.clientWidth + 2) bad.push('seat content clipped: ' + e.textContent.slice(0, 16)); });
       return { bad: [...new Set(bad)], small, overflow: document.documentElement.scrollWidth > vw + 1 };
     };
@@ -229,8 +229,10 @@ const scenarios = {
         await d.goto(BASE);
         await d.tapText('Continue match');
         await d.waitFor(() => document.querySelectorAll('.hand .card[data-card]').length > 0, 6000);
-        await d.tap('.hand .card[data-card]');
-        await d.wait(300);
+        // Select the card with two capture options where there is one, so the raised card and the option buttons are both on screen.
+        const two = '.hand .card[data-card="16"]';
+        await d.tap(await d.js((s) => !!document.querySelector(s), two) ? two : '.hand .card[data-card]');
+        await d.wait(400);
         const r = await d.js(check);
         await d.shot(`60-${label}-${name}`);
         d.ok(`${label} @ ${name} ${w}x${h}: nothing clipped, targets >= 40px, no sideways scroll`, r.bad.length === 0 && r.small.length === 0 && !r.overflow, JSON.stringify(r));

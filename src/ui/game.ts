@@ -154,7 +154,9 @@ export class GameScreen implements Screen {
     if (!landscape && this.north.parentElement === play) this.el.insertBefore(this.north, this.coachEl ?? (this.el.querySelector('.felt') as HTMLElement));
     const handN = this.viewer !== null || this.showAllHands ? Math.max(1, this.state.hand.hands[this.anchor]?.length ?? 3) : 3;
     // Hand cards: as large as fits, wrapping into two rows rather than shrinking below a comfortable touch target.
-    const avail = w - 24;
+    // Wide screens pad the table into a centred column, so measure the content box, not the element.
+    const cs = getComputedStyle(this.el);
+    const avail = w - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 24;
     let hw = Math.min(landscape ? 96 : 104, Math.floor(hgt * (landscape ? 0.2 : 0.14)));
     let rows = 1;
     const gap = 0.08;
@@ -164,9 +166,10 @@ export class GameScreen implements Screen {
       if (one >= 58) hw = one;
       else { rows = 2; hw = Math.min(hw, Math.floor(avail / (Math.ceil(handN / 2) * (1 + gap)))); }
     }
-    // The hand may use at most ~30% of the height, so the table always keeps room.
-    const handBudget = hgt * (landscape ? 0.34 : 0.3);
-    hw = Math.min(hw, Math.floor(handBudget / (rows * 1.6 + 0.15 * rows)));
+    // The hand may use at most ~30% of the height, so the table always keeps room. The last term is the
+    // headroom (--lift-room in style.css) the selected card rises into, so it never covers the tray.
+    const handBudget = hgt * (landscape ? 0.36 : 0.3);
+    hw = Math.min(hw, Math.floor(handBudget / (rows * 1.6 + 0.15 * rows + (landscape ? 0.4 : 0.12))));
     hw = Math.max(44, hw);
     this.el.style.setProperty('--hw', `${hw}px`);
     this.handEl.style.flexWrap = rows > 1 ? 'wrap' : 'nowrap';
@@ -179,7 +182,8 @@ export class GameScreen implements Screen {
       const g = cw * 0.12;
       const perRow = Math.max(1, Math.floor((pw + g) / (cw + g)));
       const r = Math.ceil(count / perRow);
-      if (r * (cw * 1.6 + g) <= ph) break;
+      // Leave room above the top row for a capturable card, which rises and grows (.card.take), and its group badge.
+      if (r * (cw * 1.6 + g) + cw * 0.2 + 10 <= ph) break;
     }
     this.el.style.setProperty('--cw', `${cw}px`);
     this.el.style.setProperty('--mw', `${Math.max(18, Math.min(30, Math.round(cw * 0.42)))}px`);
