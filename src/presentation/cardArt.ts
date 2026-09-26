@@ -301,10 +301,13 @@ export const BACKS = [
   { id: 'blu', name: 'Blu medallion' },
   { id: 'verde', name: 'Verde damask' },
   { id: 'sole', name: 'Sole' },
+  { id: 'cubi', name: 'Napoletano cubes' },
 ] as const;
 export type BackId = (typeof BACKS)[number]['id'];
 
 export function backSvg(id: BackId): string {
+  // 'cubi' is the traditional scanned back (public/cards/napoletane/back.webp); its SVG stand-in is the lattice.
+  if (id === 'cubi') id = 'rosso';
   const shell = (fill: string, inner: string, border: string) =>
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"><defs>${inner}</defs>` +
     `<rect x="1.5" y="1.5" width="${W - 3}" height="${H - 3}" rx="12" fill="${PAPER}" stroke="${INK}" stroke-width="2.4"/>` +

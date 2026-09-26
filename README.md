@@ -16,8 +16,9 @@ device around the table, or watch the computer play itself.
   device or an AI (Relaxed / Standard / Expert), with private pass-and-play.
 - A rules helper that shows every legal capture and explains the scoring, but
   never suggests a move.
-- An original Neapolitan-style deck, four card backs, four table surfaces,
-  synthesised sound, reduced motion, keyboard and screen-reader support.
+- Traditional Neapolitan card faces (scanned, from Wikimedia Commons) or an
+  original illustrated deck, five card backs, four photographic table surfaces
+  (CC0), synthesised sound, reduced motion, keyboard and screen-reader support.
 - No accounts, servers, tracking, ads or purchases.
 
 ## Setup
@@ -101,7 +102,8 @@ src/
   content/      preset descriptions, generated rules book, score explanations
   dev/          developer tools (loaded only with ?dev=1)
 tests/          rules, engine, ai, integration, e2e
-tools/          simulate.ts, export-art.ts, make-icons.ts, headless-Edge helpers
+tools/          simulate.ts, export-art.ts, make-icons.ts, fetch-commons-deck.ts,
+                build-napoletane.ts, build-textures.ts, headless-Edge helpers
 docs/           RULES_SOURCES.md, ASSETS.md, AI_REPORT.md
 ```
 
@@ -123,8 +125,10 @@ Key rules of the architecture:
 
 ## Licensing
 
-Code and all original artwork and sound: MIT (see `LICENSE`). Fonts: SIL Open
-Font License 1.1 (`licenses/`). Full provenance: [`docs/ASSETS.md`](docs/ASSETS.md).
+Code and all original artwork and sound: MIT (see `LICENSE`). Traditional card
+scans: public domain as released on Wikimedia Commons, with a provenance caveat
+(they are scans of a Dal Negro printing — personal, non-commercial use). Table
+textures: CC0 (ambientCG). Fonts: SIL Open Font License 1.1 (`licenses/`). Full provenance: [`docs/ASSETS.md`](docs/ASSETS.md).
 
 ## Rule sources
 

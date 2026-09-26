@@ -17,6 +17,7 @@ export interface Settings {
   ambienceVolume: number;
   captions: boolean;
   cardBack: BackId;
+  cardStyle: 'traditional' | 'original';
   table: TableTheme;
   tutorialSeen: boolean;
   aiSpeed: number; // multiplier on AI thinking pauses, 0.25..2
@@ -35,7 +36,8 @@ export const DEFAULT_SETTINGS: Settings = {
   ambienceOn: false,
   ambienceVolume: 0.35,
   captions: false,
-  cardBack: 'rosso',
+  cardBack: 'cubi',
+  cardStyle: 'traditional',
   table: 'walnut',
   tutorialSeen: false,
   aiSpeed: 1,

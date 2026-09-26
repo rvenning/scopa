@@ -3,7 +3,7 @@ import '@fontsource-variable/eb-garamond';
 import './ui/style.css';
 import { loadSettings, saveSettings, prefersReducedMotion } from './persistence/settings.ts';
 import { audio } from './presentation/audio.ts';
-import { preloadDeck } from './presentation/cards.ts';
+import { preloadDeck, setCardStyle } from './presentation/cards.ts';
 import type { AppCtx, GoArg, Screen, ScreenName } from './ui/app.ts';
 import { caption, h, toast } from './ui/dom.ts';
 import { GameScreen } from './ui/game.ts';
@@ -32,6 +32,7 @@ const ctx: AppCtx = {
 };
 
 function applySettings() {
+  setCardStyle(settings.cardStyle);
   document.documentElement.classList.toggle('reduced', prefersReducedMotion(settings));
   document.documentElement.style.setProperty('--anim', prefersReducedMotion(settings) ? '0.01' : String(1 / settings.animationSpeed));
   audio.configure({ sfxOn: settings.sfxOn, sfxVolume: settings.sfxVolume, ambOn: settings.ambienceOn, ambVolume: settings.ambienceVolume });

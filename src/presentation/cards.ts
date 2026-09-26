@@ -11,12 +11,23 @@ const backUrls = new Map<BackId, string>();
 
 const toUrl = (svg: string) => URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
 
-export function faceUrl(c: CardId): string {
+/**
+ * Two face styles: 'traditional' uses the scanned Neapolitan deck in
+ * public/cards/napoletane (see docs/ASSETS.md); 'original' is the procedural SVG deck.
+ */
+export type CardStyle = 'traditional' | 'original';
+let style: CardStyle = 'traditional';
+export function setCardStyle(s: CardStyle) { style = s; }
+const SCANNED = 'cards/napoletane/';
+
+export function faceUrl(c: CardId, as: CardStyle = style): string {
+  if (as === 'traditional') return SCANNED + String(c).padStart(2, '0') + '.webp';
   let u = faceUrls.get(c);
   if (!u) { u = toUrl(cardSvg(c)); faceUrls.set(c, u); }
   return u;
 }
 export function backUrl(b: BackId): string {
+  if (b === 'cubi') return SCANNED + 'back.webp';
   let u = backUrls.get(b);
   if (!u) { u = toUrl(backSvg(b)); backUrls.set(b, u); }
   return u;
@@ -24,6 +35,7 @@ export function backUrl(b: BackId): string {
 
 /** Warm the image cache so the first deal does not flicker. */
 export function preloadDeck(back: BackId) {
+  // warms whichever style is active
   for (let c = 0; c < 40; c++) { const i = new Image(); i.src = faceUrl(c); }
   const i = new Image(); i.src = backUrl(back);
 }

@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from 'vite';
 import { createHash } from 'node:crypto';
 import { execSync } from 'node:child_process';
+import { readdirSync } from 'node:fs';
 import pkg from './package.json' with { type: 'json' };
 
 /** What this build is: package version, commit and build time. Shown in Settings. */
@@ -25,7 +26,8 @@ function serviceWorker(): Plugin {
     apply: 'build',
     generateBundle(_options, bundle) {
       const files = Object.keys(bundle).filter((f) => !f.endsWith('.map') && !(f.endsWith('.woff2') && !/-latin-/.test(f)) && !f.endsWith('.woff'));
-      const publicFiles = ['manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png'];
+      const scanned = readdirSync('public/cards/napoletane').map((f) => `cards/napoletane/${f}`);
+      const publicFiles = [...scanned, 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png'];
       const all = ['./', ...files.filter((f) => f !== 'index.html'), 'index.html', ...publicFiles];
       const hash = createHash('sha256');
       for (const f of files) {

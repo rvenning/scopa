@@ -1,31 +1,41 @@
 import type { MatchState } from '../engine/match.ts';
 import { rulesBook, rulesSummary } from '../content/rulesbook.ts';
 import { BACKS } from '../presentation/cardArt.ts';
-import { backUrl } from '../presentation/cards.ts';
+import { backUrl, faceUrl, setCardStyle } from '../presentation/cards.ts';
+import { card } from '../rules/cards.ts';
 import { audio } from '../presentation/audio.ts';
 import type { RulesConfig } from '../rules/config.ts';
 import type { Settings, TableTheme } from '../persistence/settings.ts';
 import type { AppCtx } from './app.ts';
 import { h } from './dom.ts';
 
+import walnutTex from './textures/walnut.webp';
+import feltTex from './textures/felt.webp';
+import marbleTex from './textures/marble.webp';
+import linenTex from './textures/linen.webp';
+
 export const TABLES: { id: TableTheme; name: string; css: string }[] = [
-  { id: 'walnut', name: 'Warm walnut', css: 'linear-gradient(160deg,#6b4424,#4f2f17)' },
-  { id: 'felt', name: 'Deep green felt', css: 'linear-gradient(160deg,#2f5d3f,#1d3f29)' },
-  { id: 'marble', name: 'Café marble', css: 'linear-gradient(160deg,#e3ddd2,#b9b1a2)' },
-  { id: 'linen', name: 'Rustic linen', css: 'linear-gradient(160deg,#b89a70,#97795a)' },
+  { id: 'walnut', name: 'Warm walnut', css: `url(${walnutTex}) center / 160px` },
+  { id: 'felt', name: 'Deep green felt', css: `url(${feltTex}) center / 160px` },
+  { id: 'marble', name: 'Café marble', css: `url(${marbleTex}) center / 160px` },
+  { id: 'linen', name: 'Rustic linen', css: `url(${linenTex}) center / 160px` },
 ];
 
 /** Card back and table surface pickers (radio groups). */
 export function cosmeticsPicker(ctx: AppCtx, onChange?: () => void): HTMLElement {
   const s = ctx.settings;
+  const faces = h('div', { class: 'picker two', role: 'radiogroup', 'aria-label': 'Card faces' });
   const backs = h('div', { class: 'picker', role: 'radiogroup', 'aria-label': 'Card back' });
   const tables = h('div', { class: 'picker', role: 'radiogroup', 'aria-label': 'Table surface' });
+  const STYLES = [{ id: 'traditional', name: 'Traditional Napoletane' }, { id: 'original', name: 'Original illustrated' }] as const;
   const draw = () => {
+    faces.replaceChildren(...STYLES.map((st) => h('button', { role: 'radio', 'aria-checked': String(s.cardStyle === st.id), 'aria-label': st.name, onclick: () => { s.cardStyle = st.id; setCardStyle(st.id); ctx.saveSettings(); draw(); onChange?.(); } },
+      h('div', { class: 'row', style: { gap: '4px', justifyContent: 'center', flexWrap: 'nowrap' } }, ...[card(0, 8), card(1, 7), card(3, 10)].map((c) => h('img', { src: faceUrl(c, st.id), alt: '', style: { width: '31%' } }))), h('div', { class: 'small' }, st.name))));
     backs.replaceChildren(...BACKS.map((b) => h('button', { role: 'radio', 'aria-checked': String(s.cardBack === b.id), 'aria-label': b.name, onclick: () => { s.cardBack = b.id; ctx.saveSettings(); draw(); onChange?.(); } }, h('img', { src: backUrl(b.id), alt: '' }), h('div', { class: 'small' }, b.name))));
     tables.replaceChildren(...TABLES.map((t) => h('button', { role: 'radio', 'aria-checked': String(s.table === t.id), 'aria-label': t.name, onclick: () => { s.table = t.id; ctx.saveSettings(); draw(); onChange?.(); } }, h('div', { class: 'swatch', style: { background: t.css } }), h('div', { class: 'small' }, t.name))));
   };
   draw();
-  return h('div', { class: 'stack' }, h('h3', {}, 'Card back'), backs, h('h3', {}, 'Table surface'), tables);
+  return h('div', { class: 'stack' }, h('h3', {}, 'Card faces'), faces, h('h3', {}, 'Card back'), backs, h('h3', {}, 'Table surface'), tables);
 }
 
 function toggle(label: string, desc: string, get: () => boolean, set: (v: boolean) => void): HTMLElement {
