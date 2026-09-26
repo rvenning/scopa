@@ -114,21 +114,29 @@ class Audio {
   private place() {
     const t = this.now;
     const v = this.variant++ % 4;
-    const freqs = [2400, 2900, 2100, 3300];
-    this.noise(t, 0.07 + v * 0.01, freqs[v], 0.9, 0.5);
-    this.noise(t, 0.05, 380 + v * 40, 1.2, 0.35, 'lowpass');
+    const freqs = [2350, 2850, 2050, 3200];
+    this.noise(t, 0.065 + v * 0.008, freqs[v], 0.85, 0.34);
+    this.noise(t + .004, 0.055, 340 + v * 42, 1.1, 0.24, 'lowpass');
+    this.tone(t + .006, 118 + v * 7, .09, .018, 'sine');
   }
   private select() {
-    this.noise(this.now, 0.035, 4200, 1.5, 0.18);
+    const t = this.now;
+    this.noise(t, 0.032, 3900, 1.3, 0.12);
+    this.tone(t, 720, .055, .022, 'sine');
   }
   private deal() {
     const t = this.now;
-    this.noise(t, 0.05, 3600, 1.1, 0.22);
+    // Three quick paper flicks make a deal read as cards rather than a UI click.
+    for (let i = 0; i < 3; i++) {
+      this.noise(t + i * .055, 0.045, 3150 + i * 260, 1.05, 0.15);
+      this.noise(t + i * .055 + .005, .035, 430, .8, .08, 'lowpass');
+    }
   }
   private gather() {
     const t = this.now;
-    for (let i = 0; i < 4; i++) this.noise(t + i * 0.045, 0.09, 1800 + i * 250, 0.8, 0.28);
-    this.noise(t + 0.2, 0.08, 300, 1, 0.3, 'lowpass');
+    for (let i = 0; i < 4; i++) this.noise(t + i * 0.038, 0.075, 1650 + i * 230, 0.75, 0.19);
+    this.noise(t + 0.17, 0.085, 285, .9, 0.22, 'lowpass');
+    this.tone(t + .18, 145, .12, .016, 'sine');
   }
   private shuffle() {
     const t = this.now;
@@ -139,7 +147,13 @@ class Audio {
   private scopa() {
     const t = this.now;
     const notes = [392, 493.9, 587.3, 784];
-    notes.forEach((f, i) => { this.tone(t + i * 0.07, f, 0.9, 0.12); this.tone(t + i * 0.07, f * 2, 0.35, 0.03, 'sine'); });
+    notes.forEach((f, i) => {
+      const at = t + i * .075;
+      this.tone(at, f, .78, .075, 'triangle');
+      this.tone(at + .012, f * 2, .28, .018, 'sine');
+      this.noise(at, .038, 2700 + i * 260, 2.2, .035);
+    });
+    this.tone(t + .34, 1174.7, .7, .035, 'sine');
   }
   private tick() {
     const t = this.now;
@@ -148,8 +162,8 @@ class Audio {
   }
   private turn() {
     const t = this.now;
-    this.tone(t, 659.3, 0.25, 0.05, 'sine');
-    this.tone(t + 0.09, 880, 0.3, 0.05, 'sine');
+    this.tone(t, 659.3, 0.22, 0.033, 'sine');
+    this.tone(t + 0.085, 880, 0.28, 0.032, 'sine');
   }
   private error() {
     const t = this.now;
@@ -158,7 +172,7 @@ class Audio {
   private win() {
     const t = this.now;
     const seq = [[261.6, 329.6, 392], [349.2, 440, 523.3], [392, 493.9, 587.3], [523.3, 659.3, 784]];
-    seq.forEach((ch, i) => ch.forEach((f, j) => this.tone(t + i * 0.28 + j * 0.05, f, 1.1, 0.07)));
+    seq.forEach((ch, i) => ch.forEach((f, j) => this.tone(t + i * 0.26 + j * 0.045, f, 1.05, 0.045, j === 0 ? 'triangle' : 'sine')));
   }
 
   // ---------------------------------------------------------------- ambience
