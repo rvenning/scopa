@@ -14,7 +14,7 @@ async function launch({ width = 390, height = 844, dpr = 2 } = {}) {
   // launcher does not stop the browser, so a fixed port can silently hand a
   // new run the previous run's browser — and its saved players.
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pp-cdp-"));
-  const proc = spawn(EDGE, ["--headless=new", "--disable-gpu", "--hide-scrollbars", "--mute-audio", "--autoplay-policy=user-gesture-required", "--remote-debugging-port=0", `--user-data-dir=${dir}`, "about:blank"], { stdio: "ignore" });
+  const proc = spawn(EDGE, ["--headless=new", "--disable-gpu", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--hide-scrollbars", "--mute-audio", "--autoplay-policy=user-gesture-required", "--remote-debugging-port=0", `--user-data-dir=${dir}`, "about:blank"], { stdio: "ignore" });
   let target, port;
   for (let i = 0; i < 80 && !target; i++) {
     await wait(200);

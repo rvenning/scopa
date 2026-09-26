@@ -6,7 +6,8 @@ import { miniImg } from '../presentation/cards.ts';
 import { audio } from '../presentation/audio.ts';
 import { prefersReducedMotion, type Settings } from '../persistence/settings.ts';
 import { announce, h } from './dom.ts';
-import { wait } from './anim.ts';
+import { animate } from 'motion';
+import { pop, staggerIn, wait } from './anim.ts';
 
 /**
  * The end-of-hand ceremony: categories revealed one at a time, each with both
@@ -61,6 +62,7 @@ export function showScore(host: HTMLElement, s: MatchState, sides: string[], set
           h('div', { class: 'score-sides' }, ...c.points.map((_, i) => cardsRow(c, i))),
           h('p', { class: 'small', style: { margin: '0' } }, sentence));
         list.append(row);
+        staggerIn([row, ...row.querySelectorAll('.minis > *')], 0.03);
         row.scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' });
         announce(`${CATEGORY_TITLE[c.id]}. ${sentence}`);
         audio.play('tick', false);
@@ -68,8 +70,15 @@ export function showScore(host: HTMLElement, s: MatchState, sides: string[], set
       }
       skip.remove();
       const before = s.scores.map((v, i) => v - score.totals[i]);
-      const totals = h('div', { class: 'score-total', 'aria-label': 'Totals' }, ...sides.map((nm, i) => h('div', { style: { textAlign: 'center' } }, h('div', { class: 'small' }, nm), h('div', {}, `${before[i]} + ${score.totals[i]} = `, h('b', {}, String(s.scores[i]))))));
+      const totals = h('div', { class: 'score-total', 'aria-label': 'Totals' }, ...sides.map((nm, i) => h('div', { style: { textAlign: 'center' } }, h('div', { class: 'small' }, nm), h('div', {}, `${before[i]} + ${score.totals[i]} = `, h('b', { 'data-total': String(i) }, String(before[i]))))));
       done.append(totals);
+      staggerIn([totals]);
+      // Each total counts up from where it stood before this hand, then settles with a small pop.
+      totals.querySelectorAll<HTMLElement>('b[data-total]').forEach((b) => {
+        const i = Number(b.dataset.total);
+        if (reduced || fast || before[i] === s.scores[i]) { b.textContent = String(s.scores[i]); return; }
+        void animate(before[i], s.scores[i], { duration: 0.5 / settings.animationSpeed, ease: 'easeOut', onUpdate: (v) => { b.textContent = String(Math.round(v)); } }).finished.then(() => { b.textContent = String(s.scores[i]); pop(b); });
+      });
       let msg = '';
       if (s.phase === 'matchEnd' && s.winner !== null) {
         msg = score.instantWin !== null ? `${sides[s.winner]} captured all ten Coins and win the match outright!` : `${sides[s.winner]} win${sides[s.winner].includes('&') ? '' : 's'} the match, ${s.scores[s.winner]} to ${Math.max(...s.scores.filter((_, i) => i !== s.winner))}.`;

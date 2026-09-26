@@ -18,7 +18,10 @@
     "e2e": "node tests/e2e/e2e.cjs"
   },
   "devDependencies": {
+    "@types/howler": "^2.2.13",
     "@types/node": "^22.20.4",
+    "@types/three": "^0.186.0",
+    "ffmpeg-static": "^5.3.0",
     "sharp": "^0.35.4",
     "typescript": "^5.9.3",
     "vite": "^7.3.6",
@@ -26,6 +29,9 @@
   },
   "dependencies": {
     "@fontsource-variable/cormorant-garamond": "^5.3.0",
-    "@fontsource-variable/eb-garamond": "^5.3.0"
+    "@fontsource-variable/eb-garamond": "^5.3.0",
+    "howler": "2.2",
+    "motion": "^12.43.0",
+    "three": "^0.186.1"
   }
 }

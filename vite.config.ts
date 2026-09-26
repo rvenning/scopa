@@ -27,7 +27,8 @@ function serviceWorker(): Plugin {
     generateBundle(_options, bundle) {
       const files = Object.keys(bundle).filter((f) => !f.endsWith('.map') && !(f.endsWith('.woff2') && !/-latin-/.test(f)) && !f.endsWith('.woff'));
       const scanned = readdirSync('public/cards/napoletane').map((f) => `cards/napoletane/${f}`);
-      const publicFiles = [...scanned, 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png'];
+      const audioFiles = readdirSync('public/audio').map((f) => `audio/${f}`);
+      const publicFiles = [...scanned, ...audioFiles, 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png'];
       const all = ['./', ...files.filter((f) => f !== 'index.html'), 'index.html', ...publicFiles];
       const hash = createHash('sha256');
       for (const f of files) {
@@ -70,6 +71,7 @@ export default defineConfig({
   define: { __BUILD__: JSON.stringify(BUILD) },
   server: { port: 8134, strictPort: true },
   preview: { port: 8135, strictPort: true },
-  build: { target: 'es2022', assetsInlineLimit: 0 },
+  // three.js is ~146 kB gzipped and only ever loaded lazily, with the 3D table (src/presentation/table3d.ts).
+  build: { target: 'es2022', assetsInlineLimit: 0, chunkSizeWarningLimit: 600 },
   test: { include: ['tests/**/*.test.ts'], testTimeout: 180000, pool: 'forks' },
 });

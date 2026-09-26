@@ -14,7 +14,16 @@ import { PRESET_TEXT } from '../content/presets.ts';
 import { prefersReducedMotion } from '../persistence/settings.ts';
 import { clearMatch, saveMatch } from '../persistence/saves.ts';
 import { recordHand, recordMatch } from '../persistence/stats.ts';
-import { finishAll, flip, gather, snapshot, wait, type AnimCtx } from './anim.ts';
+import { enterSheet, finishAll, flip, flourishIn, gather, snapshot, wait, type AnimCtx } from './anim.ts';
+import { chooseView, detectCapabilities, type ViewChoice } from '../presentation/mode.ts';
+import { presentationAllowance } from '../presentation/pacing.ts';
+import { placements, planFlights, targetsFor, type Pose, type Rect, type Zone } from '../presentation/sceneModel.ts';
+import type { Highlight, Table3D } from '../presentation/table3d.ts';
+
+/** Once the 3D table has been too slow on this device, Automatic stays flat for the session. */
+let perfDowngraded = false;
+/** Test and support override: ?view=2d or ?view=3d. */
+const forcedView = (() => { try { const v = new URLSearchParams(location.search).get('view'); return v === '2d' || v === '3d' ? v : null; } catch { return null; } })();
 import type { AppCtx, Screen } from './app.ts';
 import { announce, caption, h, toast } from './dom.ts';
 import { showScore } from './score.ts';
@@ -55,7 +64,15 @@ export class GameScreen implements Screen {
   private drag: { card: CardId; x: number; y: number; ghost: HTMLElement | null; el: HTMLElement; moved: boolean } | null = null;
   private infoPop: HTMLElement | null = null;
   private focusInfo = '';
-  private animating: Promise<void> = Promise.resolve();
+  /** When the last presented move will have been seen (pacing.ts); computer moves and the score sheet wait for it. */
+  private settleAt = 0;
+  // Presentation: the flat DOM table always exists; the 3D table paints underneath when chosen.
+  view: ViewChoice = { view: '2d', reason: 'starting' };
+  private t3d: Table3D | null = null;
+  private t3dLoading = false;
+  private t3dLook = '';
+  private zones: Map<CardId, Zone> | null = null;
+  private presenting = false;
 
   // DOM regions
   private bar!: HTMLElement;
@@ -77,8 +94,17 @@ export class GameScreen implements Screen {
     this.anchor = this.humans[0] ?? 0;
     this.el = h('div', { class: 'screen table-screen', 'data-table': ctx.settings.table, role: 'application', 'aria-label': 'Scopa table' });
     this.build();
-    this.ro = new ResizeObserver(() => this.layout());
+    // The screen resizing re-fits the 3D canvas and places cards at once; the play area or tray
+    // changing size (a longer message, a new option row) lets the cards glide to their new places.
+    this.ro = new ResizeObserver((entries) => {
+      const screen = entries.some((e) => e.target === this.el);
+      if (screen) this.layout();
+      if (!this.t3d) return;
+      if (screen) { this.t3d.resize(); this.sync3d(null, true); } else this.sync3d(null);
+    });
     this.ro.observe(this.el);
+    this.ro.observe(this.tableEl.parentElement as HTMLElement);
+    this.ro.observe(this.tray);
     document.addEventListener('visibilitychange', this.onVisibility);
     window.addEventListener('pointerup', this.onGlobalUp);
     window.addEventListener('pointermove', this.onGlobalMove);
@@ -86,6 +112,7 @@ export class GameScreen implements Screen {
     if (opts.resume && this.humans.length > 1) this.viewer = null;
     else if (this.humans.length === 1) this.viewer = this.humans[0];
     this.render();
+    this.applyView();
     queueMicrotask(() => this.step());
   }
 
@@ -93,11 +120,144 @@ export class GameScreen implements Screen {
     this.destroyed = true;
     this.aiToken++;
     this.ro?.disconnect();
+    this.t3d?.dispose();
+    this.t3d = null;
     document.removeEventListener('visibilitychange', this.onVisibility);
     window.removeEventListener('pointerup', this.onGlobalUp);
     window.removeEventListener('pointermove', this.onGlobalMove);
     finishAll();
   }
+
+  // ---------------------------------------------------------------- 3D table
+
+  /** Choose the flat or 3D table from settings and the device, and switch if needed. Safe to call often. */
+  applyView() {
+    if (this.destroyed) return;
+    const setting = forcedView ?? this.ctx.settings.tableView;
+    this.view = chooseView(setting, detectCapabilities(this.reduced), perfDowngraded);
+    if (this.view.view === '2d') { this.unmount3d(); return; }
+    if (this.t3d) {
+      // Look changes (table, back, faces) are applied to the live scene.
+      const look = `${this.ctx.settings.table}|${this.ctx.settings.cardBack}|${this.ctx.settings.cardStyle}`;
+      if (look !== this.t3dLook) {
+        const [table, back, style] = this.t3dLook.split('|');
+        if (table !== this.ctx.settings.table) this.t3d.setSurface(this.ctx.settings.table);
+        if (back !== this.ctx.settings.cardBack) this.t3d.setBack(backUrl(this.ctx.settings.cardBack));
+        if (style !== this.ctx.settings.cardStyle) this.t3d.refreshFaces();
+        this.t3dLook = look;
+      }
+      return;
+    }
+    if (this.t3dLoading) return;
+    this.t3dLoading = true;
+    // Three.js arrives in its own chunk, after the table is already playable in 2D.
+    import('../presentation/table3d.ts').then((m) => {
+      this.t3dLoading = false;
+      if (this.destroyed || this.view.view !== '3d' || this.t3d) return;
+      try {
+        this.t3d = new m.Table3D(this.el, {
+          faceUrl: (c) => faceUrl(c),
+          backUrl: backUrl(this.ctx.settings.cardBack),
+          table: this.ctx.settings.table,
+          onFallback: (why) => this.fallback(why),
+        });
+      } catch (e) { this.fallback(`the 3D table could not start (${(e as Error).message})`); return; }
+      this.t3dLook = `${this.ctx.settings.table}|${this.ctx.settings.cardBack}|${this.ctx.settings.cardStyle}`;
+      this.el.classList.add('view3d');
+      this.layout();
+      this.sync3d(null, true);
+      this.renderHighlights();
+    }).catch(() => { this.t3dLoading = false; this.fallback('the 3D table could not be loaded'); });
+  }
+
+  private fallback(why: string) {
+    if (/slow/.test(why)) {
+      perfDowngraded = true;
+      // A player who explicitly chose the 3D table keeps it; Automatic gives way.
+      if ((forcedView ?? this.ctx.settings.tableView) === '3d') return;
+    }
+    this.view = { view: '2d', reason: why };
+    this.unmount3d();
+  }
+
+  private unmount3d() {
+    if (!this.t3d) return;
+    this.t3d.dispose();
+    this.t3d = null;
+    this.zones = null;
+    this.el.classList.remove('view3d');
+    this.layout();
+  }
+
+  private rectOf(el: Element | null): Rect | null {
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 ? { left: r.left, top: r.top, width: r.width, height: r.height } : null;
+  }
+
+  /** Measure the DOM table and send every card to where the engine says it is. */
+  private sync3d(events: MatchEvent[] | null, jump = false, before?: ReturnType<typeof snapshot>) {
+    const t = this.t3d;
+    if (!t) return;
+    const host = this.el.getBoundingClientRect();
+    const rel = (r: Rect | null): Rect | null => (r ? { left: r.left - host.left, top: r.top - host.top, width: r.width, height: r.height } : null);
+    const table = new Map<CardId, Rect>();
+    this.tableEl.querySelectorAll<HTMLElement>('[data-card]').forEach((el) => { const r = rel(this.rectOf(el)); if (r) table.set(Number(el.dataset.card), r); });
+    const cw = parseFloat(getComputedStyle(this.el).getPropertyValue('--cw')) || 64;
+    const zones = placements(this.state);
+    const targets = targetsFor(zones, {
+      table,
+      deck: rel(this.rectOf(this.meta.querySelector('.deck'))),
+      seat: (seat) => rel(this.rectOf(seat === this.anchor ? this.handEl : this.el.querySelector(`.seat[data-seat="${seat}"]`))),
+      pile: (side) => rel(this.rectOf(this.el.querySelector(`.pile-spot[data-side="${side}"]`))),
+      cardW: cw,
+    }, rel(this.rectOf(this.tableEl.parentElement)) ?? { left: 0, top: 0, width: host.width, height: host.height });
+    const prevZones = this.zones;
+    this.zones = zones;
+    // Cards the player may play next will turn face up in flight: have their faces ready.
+    if (this.viewer === this.anchor) t.prepare(this.state.hand.hands[this.anchor]);
+    if (jump || !prevZones || this.reduced) { t.flights.jump(targets); return; }
+    if (!events) { t.flights.retarget(targets); return; }
+    // A card played from the player's own hand starts where its DOM card was.
+    const origins = new Map<CardId, Pose>();
+    for (const ev of events) {
+      if (ev.e !== 'play') continue;
+      const r = rel(before?.rects.get(String(ev.card)) ?? null);
+      if (r && ev.seat === this.anchor) origins.set(ev.card, { x: r.left + r.width / 2, y: r.top + r.height / 2, z: 30, w: r.width, rot: 0, face: 1, tilt: 0, show: 1 });
+    }
+    const plan = planFlights(events, prevZones, zones, t.flights.targets, targets, { speed: this.ctx.settings.animationSpeed }, origins);
+    t.prepare([...plan].filter(([c, f]) => f.via?.face === 1 || targets.get(c)?.face === 1).map(([c]) => c));
+    // The player's own hand is animated in the DOM; those cards need no 3D flight.
+    for (const [c, z] of zones) if (z.z === 'hand' && z.seat === this.anchor) plan.delete(c);
+    t.flights.retarget(targets, plan, this.ctx.settings.animationSpeed);
+  }
+
+  private highlights3d() {
+    if (!this.t3d) return;
+    const m = new Map<CardId, Highlight>();
+    this.tableEl.querySelectorAll<HTMLElement>('[data-card]').forEach((el) => {
+      const c = Number(el.dataset.card);
+      const cl = el.classList;
+      m.set(c, cl.contains('take') ? 'take' : cl.contains('pick') ? 'pick' : cl.contains('legal') ? 'legal' : cl.contains('dim') ? 'dim' : null);
+    });
+    this.t3d.setHighlights(m);
+  }
+
+  /** Read-only view of the 3D table for the end-to-end suite. */
+  get sceneInfo() {
+    return { view: this.view.view, reason: this.view.reason, mounted: !!this.t3d, ...(this.t3d?.debug() ?? {}) };
+  }
+
+  /** Projected centre of a 3D card, for alignment checks against its DOM box. */
+  sceneScreenOf(c: CardId) {
+    const p = this.t3d?.screenOf(c);
+    if (!p) return null;
+    const host = this.el.getBoundingClientRect();
+    return { x: p.x + host.left, y: p.y + host.top };
+  }
+
+  /** Snap the 3D table to rest (tests; backgrounding). */
+  settle3d() { this.t3d?.flights.finish(); }
 
   // ---------------------------------------------------------------- helpers
 
@@ -175,7 +335,9 @@ export class GameScreen implements Screen {
     this.handEl.style.flexWrap = rows > 1 ? 'wrap' : 'nowrap';
     // Table cards: the largest width at which every card (plus room for one more) fits the play area.
     // (play is the play area found above)
-    const pw = play.clientWidth - 24, ph = play.clientHeight - 24 - this.meta.offsetHeight - (this.north.parentElement === play ? this.north.offsetHeight : 0);
+    // In landscape the deck row floats in the play area's corner and takes no height (see style.css).
+    const metaH = getComputedStyle(this.meta).position === 'absolute' ? 0 : this.meta.offsetHeight;
+    const pw = play.clientWidth - 24, ph = play.clientHeight - 24 - metaH - (this.north.parentElement === play ? this.north.offsetHeight : 0);
     const count = Math.max(4, this.state.hand.table.length + 1);
     let cw = 96;
     for (; cw > 34; cw -= 2) {
@@ -187,6 +349,8 @@ export class GameScreen implements Screen {
     }
     this.el.style.setProperty('--cw', `${cw}px`);
     this.el.style.setProperty('--mw', `${Math.max(18, Math.min(30, Math.round(cw * 0.42)))}px`);
+    // Card sizes may have changed: keep the 3D cards under their DOM boxes.
+    if (this.t3d && !this.presenting) this.sync3d(null);
   }
 
   // ---------------------------------------------------------------- render
@@ -205,6 +369,10 @@ export class GameScreen implements Screen {
     this.west.replaceChildren();
     this.east.replaceChildren();
     const landscape = this.el.classList.contains('landscape');
+    // Each side's capture pile rests beside one of its seats (shown in the 3D view; hidden in 2D).
+    const mySide = sideOf(this.rules, this.anchor);
+    const piled = new Set<number>([mySide]);
+    const pileSpot = (side: number) => h('div', { class: 'pile-spot', 'data-side': String(side), 'aria-hidden': 'true' });
     for (let seat = 0; seat < this.n; seat++) {
       if (seat === this.anchor) continue;
       const r = this.rel(seat);
@@ -212,11 +380,22 @@ export class GameScreen implements Screen {
       if (this.n === 2) pos = 'north';
       else if (this.n === 3) pos = landscape ? (r === 1 ? 'east' : 'west') : 'north';
       else pos = r === 2 ? 'north' : r === 1 ? 'east' : 'west';
+      const side = sideOf(this.rules, seat);
       const panel = this.seatPanel(seat, pos !== 'north');
+      // The pile spot is an invisible, absolutely placed child of the panel: measured, never laid out.
+      // Side seats' piles lie inward; a far seat's lies outward (left, or right for the right-hand of two).
+      if (!piled.has(side)) {
+        piled.add(side);
+        const at = pos === 'west' ? 'right' : pos === 'east' ? 'left' : this.n === 3 && !landscape && r === 1 ? 'right' : 'left';
+        const spot = pileSpot(side);
+        spot.classList.add(`at-${at}`);
+        panel.append(spot);
+      }
+      const unit = panel;
       if (pos === 'north') {
-        if (this.n === 3 && !landscape) this.north.prepend(panel); // counter-clockwise: right seat shows on the right
-        else this.north.append(panel);
-      } else (pos === 'east' ? this.east : this.west).append(panel);
+        if (this.n === 3 && !landscape) this.north.prepend(unit); // counter-clockwise: right seat shows on the right
+        else this.north.append(unit);
+      } else (pos === 'east' ? this.east : this.west).append(unit);
     }
     if (this.n === 3 && !landscape) this.north.replaceChildren(...[...this.north.children].reverse());
 
@@ -225,6 +404,10 @@ export class GameScreen implements Screen {
     this.tableEl.classList.toggle('empty', s.hand.table.length === 0);
     const deck = h('div', { class: 'deck', 'aria-hidden': 'true' }, ...(s.hand.deck.length ? [0, 1, 2].slice(0, Math.min(3, Math.ceil(s.hand.deck.length / 6))).map(() => miniImg('back', this.ctx.settings.cardBack)) : []));
     this.meta.replaceChildren(deck, h('span', { 'aria-label': `${s.hand.deck.length} cards left to deal` }, s.hand.deck.length ? `${s.hand.deck.length} to deal` : 'Last deal'));
+    // The player's own pile rests in the lower-right corner of the table, nearest them.
+    const play = this.tableEl.parentElement as HTMLElement;
+    play.querySelector(':scope > .pile-spot')?.remove();
+    play.append(pileSpot(mySide));
 
     // Bottom seat strip and hand.
     this.me.replaceChildren(this.meStrip());
@@ -232,6 +415,8 @@ export class GameScreen implements Screen {
     this.renderTray();
     this.layout();
     this.renderBadges();
+    this.renderHighlights();
+    if (!this.presenting) this.sync3d(null);
   }
 
   private shortSide(i: number) {
@@ -359,7 +544,7 @@ export class GameScreen implements Screen {
       el.classList.remove('legal', 'take', 'dim', 'pick');
       el.querySelector('.groups')?.remove();
     }
-    if (!sel) return;
+    if (!sel) { this.highlights3d(); return; }
     const hl = this.ctx.settings.legalHighlights;
     const opt = sel.chosen !== null ? sel.options[sel.chosen] : null;
     for (const el of cards) {
@@ -374,6 +559,7 @@ export class GameScreen implements Screen {
         }
       } else if (sel.picks.has(c)) el.classList.add('pick');
     }
+    this.highlights3d();
   }
 
   private renderTray() {
@@ -736,7 +922,11 @@ export class GameScreen implements Screen {
     }
     const dealt = events.some((e) => e.e === 'deal');
     const newHand = events.some((e) => e.e === 'newHand');
-    this.render();
+    this.presenting = true;
+    try { this.render(); } finally { this.presenting = false; }
+    this.sync3d(events, false, before);
+    // Pace the next computer move and the score sheet from the events alone, never from animation.
+    this.settleAt = performance.now() + presentationAllowance(events, { reduced: this.reduced, speed: this.ctx.settings.animationSpeed });
     // The played card itself joins the flight if it was a capture.
     const playEv = events.find((e) => e.e === 'play') as Extract<MatchEvent, { e: 'play' }> | undefined;
     if (playEv && playEv.option.kind !== 'place' && playedFrom?.rect) flights.unshift({ src: faceUrl(playEv.card), rect: playedFrom.rect });
@@ -745,16 +935,25 @@ export class GameScreen implements Screen {
       if (playedFrom && c === playedFrom.card) return playedFrom.rect;
       return dealt ? deckRect : null;
     };
-    if (newHand) audio.play('shuffle', captions); else if (dealt) audio.play('deal', captions);
-    if (playEv) audio.play(playEv.option.kind === 'place' ? 'place' : 'gather', captions);
-    const anim = (async () => {
-      await flip(this.el, before, ctx, origin);
-      if (flights.length) {
+    // Card sounds sit a little left or right, following where the card is on the table.
+    const panAt = (r: DOMRect | null | undefined) => (r ? ((r.left + r.width / 2) / Math.max(1, innerWidth)) * 2 - 1 : 0);
+    const dealtCount = events.filter((e): e is Extract<MatchEvent, { e: 'deal' }> => e.e === 'deal').reduce((t, e) => t + e.counts.reduce((a, b) => a + b, 0) + e.table.length, 0);
+    if (newHand) audio.play('shuffle', captions, { pan: panAt(deckRect) });
+    if (dealt) window.setTimeout(() => audio.play('deal', captions && !newHand, { pan: panAt(deckRect), count: dealtCount }), newHand ? 700 / this.ctx.settings.animationSpeed : 0);
+    if (playEv) {
+      const landing = this.tableEl.querySelector(`[data-card="${playEv.card}"]`)?.getBoundingClientRect() ?? playedFrom?.rect;
+      audio.play(playEv.option.kind === 'place' ? 'place' : 'gather', captions, { pan: panAt(playEv.option.kind === 'place' ? landing : flightTarget ?? playedFrom?.rect) });
+    }
+    if (this.t3d) {
+      // The 3D table flies the table cards; only the player's own hand moves in the DOM.
+      void flip(this.handEl, before, ctx, origin);
+    } else {
+      void (async () => {
+        await flip(this.el, before, ctx, origin);
         // show the capture on the table for a beat before gathering
-        await gather(flights, flightTarget, ctx, 120);
-      }
-    })();
-    this.animating = anim;
+        if (flights.length) await gather(flights, flightTarget, ctx, 120);
+      })();
+    }
     if (scopa) this.flourish();
     if (lines.length) {
       announce(lines.join(' '));
@@ -767,7 +966,7 @@ export class GameScreen implements Screen {
     audio.play('scopa', this.ctx.settings.captions);
     const f = h('div', { class: 'scopa-flourish', 'aria-hidden': 'true' }, 'Scopa!');
     this.el.append(f);
-    window.setTimeout(() => f.remove(), 1400 / this.ctx.settings.animationSpeed);
+    void flourishIn(f, this.ctx.settings.animationSpeed).finally(() => f.remove());
     if (this.ctx.settings.captions) caption('Scopa!');
   }
 
@@ -809,8 +1008,9 @@ export class GameScreen implements Screen {
     const delay = thinkingDelay(cfg.level ?? 'standard', cfg.persona, view) * this.ctx.settings.aiSpeed;
     const started = performance.now();
     if (!move) move = await requestMove(view, cfg.level ?? 'standard', cfg.persona);
-    await this.animating;
-    const left = delay - (performance.now() - started);
+    // Wait for the thinking pause and for the last move to have been seen: both are fixed
+    // durations (pacing.ts), so animation can neither hold nor hurry the computer.
+    const left = Math.max(started + delay, this.settleAt) - performance.now();
     if (left > 0) await wait(left);
     if (token !== this.aiToken || this.destroyed || this.state !== s || this.overlayEl) return;
     await this.submit(playCommand(s, seat, move.card, move.option.kind, move.option.takes));
@@ -832,6 +1032,7 @@ export class GameScreen implements Screen {
     };
     this.overlayEl = ov;
     this.el.append(ov);
+    enterSheet(ov);
     go.focus();
     announce(`Pass to ${this.seatName(seat)}. Tap when ready.`, true);
   }
@@ -842,7 +1043,8 @@ export class GameScreen implements Screen {
       recordHand(s);
       if (s.phase === 'matchEnd') { recordMatch(s); clearMatch(); }
     }
-    await this.animating;
+    const left = this.settleAt - performance.now();
+    if (left > 0) await wait(left);
     if (this.destroyed) return;
     if (s.phase === 'matchEnd') audio.play('win', this.ctx.settings.captions);
     const sides = Array.from({ length: sideCount(this.rules) }, (_, i) => this.sideName(i));
@@ -850,6 +1052,7 @@ export class GameScreen implements Screen {
     this.overlayEl = ov;
     this.render();
     this.el.append(ov);
+    enterSheet(ov);
     const result = await showScore(ov, s, sides, this.ctx.settings, { tutorial: !!this.tut });
     ov.remove();
     this.overlayEl = null;
@@ -893,6 +1096,7 @@ export class GameScreen implements Screen {
     this.overlayEl = ov;
     this.render();
     this.el.append(ov);
+    enterSheet(ov);
     pauseMenu(ov, this.ctx, {
       state: this.state,
       tutorial: !!this.tut,
@@ -913,6 +1117,7 @@ export class GameScreen implements Screen {
   private onVisibility = () => {
     if (document.visibilityState === 'hidden') {
       finishAll();
+      this.settle3d();
       if (!this.tut) saveMatch(this.state, this.ctx.build.version);
       audio.suspendIfIdle();
       if (this.humans.length > 1 && !this.overlayEl && this.state.phase === 'play') { this.viewer = null; this.sel = null; this.render(); }
