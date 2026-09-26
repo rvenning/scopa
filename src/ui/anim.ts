@@ -18,6 +18,13 @@ export function snapshot(root: HTMLElement): Snapshot {
   return { rects };
 }
 
+/**
+ * Motion interpolates transform lists function by function; a keyframe of 'none' is read as a
+ * zero matrix, which collapsed the handoff sheet to nothing. Always animate to an explicit identity
+ * written with the same functions as the other keyframe.
+ */
+const IDENTITY = 'translate(0px, 0px) scale(1) rotate(0deg)';
+
 export interface AnimCtx { reduced: boolean; speed: number }
 
 const running = new Set<AnimationPlaybackControls>();
@@ -48,9 +55,10 @@ export function flip(root: HTMLElement, before: Snapshot, ctx: AnimCtx, origin?:
       // Newly dealt cards leave the deck one after another; moved cards go together.
       const delay = known ? 0 : Math.min(newcomer++ * 0.055, 0.4) / ctx.speed;
       const angle = Math.max(-7, Math.min(7, dx / 35));
-      c = animate(el, { transform: [`translate(${dx}px, ${dy}px) scale(${s}) rotate(${angle}deg)`, 'none'] }, { ...SPRING.card, visualDuration: SPRING.card.visualDuration / ctx.speed, delay });
+      c = animate(el, { transform: [`translate(${dx}px, ${dy}px) scale(${s}) rotate(${angle}deg)`, IDENTITY] }, { ...SPRING.card, visualDuration: SPRING.card.visualDuration / ctx.speed, delay });
     }
-    anims.push(track(c));
+    // Motion leaves the last keyframe inline; clear it so class-based lifts (.selected, .take) apply again.
+    anims.push(track(c, () => { if (!ctx.reduced) el.style.removeProperty('transform'); }));
   }
   return Promise.all(anims).then(() => undefined);
 }
@@ -74,7 +82,7 @@ export function gather(images: { src: string; rect: DOMRect }[], target: DOMRect
     const c = ctx.reduced
       ? animate(g, { opacity: [1, 0] }, { duration: 0.22 / ctx.speed, delay: delay / 1000 / ctx.speed })
       : animate(g, {
-        transform: ['none', `translate(${tx * 0.18}px, ${ty * 0.16 - arc}px) scale(1.065) rotate(${twist}deg)`, `translate(${tx * 0.72}px, ${ty * 0.68 - arc * 0.35}px) scale(.72) rotate(${twist * 0.35}deg)`, `translate(${tx}px, ${ty}px) scale(.28) rotate(0deg)`],
+        transform: [IDENTITY, `translate(${tx * 0.18}px, ${ty * 0.16 - arc}px) scale(1.065) rotate(${twist}deg)`, `translate(${tx * 0.72}px, ${ty * 0.68 - arc * 0.35}px) scale(.72) rotate(${twist * 0.35}deg)`, `translate(${tx}px, ${ty}px) scale(.28) rotate(0deg)`],
         opacity: [1, 1, 0.92, 0.08],
       }, { duration: 0.58 / ctx.speed, times: [0, 0.28, 0.72, 1], ease: [0.35, 0.02, 0.24, 1], delay: (delay / 1000 + i * 0.034) / ctx.speed });
     anims.push(track(c, () => g.remove()));
@@ -99,14 +107,14 @@ const reducedNow = () => document.documentElement.classList.contains('reduced');
 export function enterSheet(overlay: HTMLElement, sheet: HTMLElement | null = overlay.querySelector('.sheet')) {
   if (reducedNow()) { void track(animate(overlay, { opacity: [0, 1] }, { duration: 0.12 })); return; }
   void track(animate(overlay, { opacity: [0, 1] }, { duration: 0.2, ease: 'easeOut' }));
-  if (sheet) void track(animate(sheet, { opacity: [0, 1], transform: ['translateY(18px) scale(.965)', 'none'] }, SPRING.ui));
+  if (sheet) void track(animate(sheet, { opacity: [0, 1], transform: ['translate(0px, 18px) scale(.965) rotate(0deg)', IDENTITY] }, SPRING.ui));
 }
 
 /** Rows of a score sheet arriving one after another. */
 export function staggerIn(els: Element[], gap = 0.07) {
   if (!els.length) return;
   if (reducedNow()) { void track(animate(els, { opacity: [0, 1] }, { duration: 0.12 })); return; }
-  void track(animate(els, { opacity: [0, 1], transform: ['translateY(8px)', 'none'] }, { ...SPRING.ui, delay: stagger(gap) }));
+  void track(animate(els, { opacity: [0, 1], transform: ['translate(0px, 8px) scale(1) rotate(0deg)', IDENTITY] }, { ...SPRING.ui, delay: stagger(gap) }));
 }
 
 /** A small emphasis for a number that just changed. */

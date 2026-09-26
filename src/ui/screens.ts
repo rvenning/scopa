@@ -87,7 +87,7 @@ export function settingsScreen(ctx: AppCtx, back: ScreenName = 'title'): Screen 
         }
       } }, 'Clear saved data')),
     h('h3', {}, 'Credits and licences'),
-    h('p', { class: 'small' }, 'Traditional card faces and the cubes back: scans from Wikimedia Commons (Category: Naples deck, uploaded by Trocche100, released to the public domain), a Dal Negro printing of the Neapolitan pattern. Table textures: ambientCG (CC0). The Original illustrated deck, the other card backs and all sounds are original to this project. Fonts: Cormorant Garamond and EB Garamond, SIL Open Font License 1.1. Full details in docs/ASSETS.md; rules sources in docs/RULES_SOURCES.md.'),
+    h('p', { class: 'small' }, 'Traditional card faces and the cubes back: scans from Wikimedia Commons (Category: Naples deck, uploaded by Trocche100, released to the public domain), a Dal Negro printing of the Neapolitan pattern. Table textures: ambientCG (CC0). Card sounds and jingles: Kenney (kenney.nl, CC0). Café ambience: "Restaurant ambience" by stephan, pdsounds.org (public domain). The Original illustrated deck, the other card backs and the interface sounds are original to this project. Built with three.js, Motion and Howler.js (MIT). Fonts: Cormorant Garamond and EB Garamond, SIL Open Font License 1.1. Full details in docs/ASSETS.md; rules sources in docs/RULES_SOURCES.md.'),
   );
   el.append(page);
   return { el, onKey: (e) => { if (e.key === 'Escape' && !(e.target instanceof HTMLSelectElement)) ctx.go(back); } };

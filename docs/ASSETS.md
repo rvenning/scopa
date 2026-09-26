@@ -1,8 +1,9 @@
 # Assets and licensing
 
-Scopa ships three kinds of asset: **original** work made for this project,
-**CC0** table textures, and a **scanned Neapolitan deck** from Wikimedia Commons
-(read its caveat below), plus fonts under the **SIL Open Font License 1.1**.
+Scopa ships four kinds of asset: **original** work made for this project,
+**CC0** table textures and **CC0 / public-domain recorded sounds**, and a
+**scanned Neapolitan deck** from Wikimedia Commons (read its caveat below), plus
+fonts under the **SIL Open Font License 1.1**.
 Nothing is hotlinked: everything is bundled and cached for offline play.
 
 ## Scanned Neapolitan deck — "Traditional" card faces (the default)
@@ -38,6 +39,37 @@ cards cut from four photographs.
 Attribution is not required for CC0; the textures are credited in Settings anyway.
 `tools/build-textures.ts` regenerates the tiles.
 
+## Recorded sounds (CC0 and public domain)
+
+Played through Howler.js. `tools/build-audio.ts` decodes the sources with
+`ffmpeg-static`, trims silence, matches loudness per category, adds short fades
+and packs the clips into one sprite (`public/audio/sprite.webm` Opus 64 kb/s and
+`sprite.mp3` 96 kb/s, sprite map in `src/presentation/soundSprite.json`). The café
+recording becomes a seamless 48-second loop (`public/audio/ambience.*`).
+
+| Sprite clips | In-game purpose | Source asset | Licence | Modifications | Retrieved |
+|---|---|---|---|---|---|
+| `place1`–`place4` | A card put on the table | Kenney "Casino Audio" 1.1 — `card-place-1..4.ogg` — <https://kenney.nl/assets/casino-audio> (licence text: `art/source/audio/casino/License.txt`) | CC0 1.0 | Trimmed, levelled to −20 dBFS RMS, 25 ms fade-out | 2026-09-26 |
+| `slide1`–`slide4` | Dealing, one slide per card | Kenney "Casino Audio" — `card-slide-1,2,3,5.ogg` | CC0 1.0 | Trimmed, levelled to −24 dBFS | 2026-09-26 |
+| `capture1`–`capture4` | Gathering a capture | Kenney "Casino Audio" — `card-shove-1..4.ogg` | CC0 1.0 | Trimmed, levelled to −21 dBFS | 2026-09-26 |
+| `select` | Picking up a card | Kenney "Casino Audio" — `card-fan-1.ogg` | CC0 1.0 | Trimmed, levelled to −27 dBFS | 2026-09-26 |
+| `shuffle` | A new hand | Kenney "Casino Audio" — `card-shuffle.ogg` | CC0 1.0 | First 2.2 s, 220 ms fade-out | 2026-09-26 |
+| `scopa` | The Scopa! flourish | Kenney "Music Jingles" — `jingles_PIZZI10.ogg` — <https://kenney.nl/assets/music-jingles> (`art/source/audio/jingles/License.txt`) | CC0 1.0 | Levelled; chosen because its pitch rises (measured with `node tools/build-audio.ts --analyse`) | 2026-09-26 |
+| `win` | Winning a match | Kenney "Music Jingles" — `jingles_PIZZI02.ogg` | CC0 1.0 | Levelled; rises about an octave | 2026-09-26 |
+| `ambience.webm` / `.mp3` | Café ambience (Settings → Sound) | "Restaurant ambience.ogg" by stephan, from pdsounds.org, on Wikimedia Commons — <https://commons.wikimedia.org/wiki/File:Restaurant_ambience.ogg> (source kept at `art/source/audio/Restaurant_ambience.ogg`) | Public domain (released by the author) | Seconds 8–60, levelled to −30 dBFS, looped with a 4 s equal-power crossfade | 2026-09-26 |
+
+The interface cues (your turn, not allowed, score ticks) and a fallback for
+every cue are still synthesised at runtime (`src/presentation/synth.ts`); they
+play until the recordings have loaded, or if they cannot load.
+
+## Third-party code (bundled, lazily loaded where noted)
+
+| Package | Use | Licence |
+|---|---|---|
+| three (0.186) | The 3D table (`src/presentation/table3d.ts`), loaded on demand | MIT |
+| motion (12) | DOM transitions and the springs that drive every card flight | MIT |
+| howler (2.2) | Recorded sound playback, loaded after the first tap | MIT |
+
 ## Original assets (no attribution required; MIT with the code)
 
 | Asset | In-game purpose | Source (editable) | Notes |
@@ -47,7 +79,8 @@ Attribution is not required for CC0; the textures are credited in Settings anywa
 | Table lighting (lamp pool and vignette) | Over the table textures | `src/ui/style.css` | CSS gradients. |
 | Paper texture on menus | Background | `src/ui/style.css` | Inline SVG noise. |
 | App icons (`public/icons/*`) | Home screen / manifest | `tools/make-icons.ts` | Rendered from the Settebello card art. |
-| All sound effects and café ambience | Card placement (4 variants), gather, shuffle, deal, scopa flourish, scoring ticks, match-win cue, turn cue, error cue, ambience | `src/presentation/audio.ts` | Synthesised at runtime with WebAudio (filtered noise and oscillators). There are no audio files. |
+| Synthesised sounds | Interface cues (turn, error, score ticks) and the fallback voice for every card sound and the ambience | `src/presentation/synth.ts` | Synthesised at runtime with WebAudio (filtered noise and oscillators). |
+| 3D table materials and lighting | Card bodies, rounded edges, lamp, shadows | `src/presentation/table3d.ts` | Built in code; the card faces, backs and table textures are the assets listed above. |
 
 ### How the card art was made
 

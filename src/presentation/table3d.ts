@@ -120,8 +120,8 @@ export class Table3D {
 
     this.scene.background = new THREE.Color(0x1d1209);
     // Warm room light from above, a lamp pooled over the middle of the table, a cool fill from the window side.
-    this.scene.add(new THREE.HemisphereLight(0xfff0d8, 0x2a170b, 1.15));
-    this.lamp = new THREE.SpotLight(0xffe2b0, 2.4, 0, THREE.MathUtils.degToRad(48), 0.85, 0);
+    this.scene.add(new THREE.HemisphereLight(0xfff0d8, 0x2a170b, 0.78));
+    this.lamp = new THREE.SpotLight(0xffe2b0, 3.1, 0, THREE.MathUtils.degToRad(44), 0.9, 0);
     this.lamp.castShadow = true;
     const small = Math.min(innerWidth, innerHeight) < 600;
     this.lamp.shadow.mapSize.set(small ? 1024 : 2048, small ? 1024 : 2048);

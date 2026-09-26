@@ -262,7 +262,7 @@ const scenarios = {
 
   // The next two need the production build: node tests/e2e/e2e.cjs http://localhost:8135/ --only offline
   async offline(d) {
-    if (!/8135/.test(BASE)) { console.log('  (skipped: run against the production preview on :8135)'); return; }
+    if (BASE.includes(':8134/')) { console.log('  (skipped: run against the production preview, e.g. :8135)'); return; }
     await prime(d);
     d.ok('service worker takes control', await d.waitFor(async () => { await navigator.serviceWorker.ready; return !!navigator.serviceWorker.controller || (location.reload(), false); }, 20000));
     await d.goto(BASE);
@@ -285,7 +285,7 @@ const scenarios = {
   },
 
   async updateKeepsMatch(d) {
-    if (!/8135/.test(BASE)) { console.log('  (skipped: run against the production preview on :8135)'); return; }
+    if (BASE.includes(':8134/')) { console.log('  (skipped: run against the production preview, e.g. :8135)'); return; }
     await prime(d);
     await d.waitFor(async () => { await navigator.serviceWorker.ready; return !!navigator.serviceWorker.controller || (location.reload(), false); }, 20000);
     await d.goto(BASE);
