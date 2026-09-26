@@ -7,6 +7,7 @@ import { preloadDeck, setCardStyle } from './presentation/cards.ts';
 import type { AppCtx, GoArg, Screen, ScreenName } from './ui/app.ts';
 import { caption, h, toast } from './ui/dom.ts';
 import { GameScreen } from './ui/game.ts';
+import { runningCount } from './ui/anim.ts';
 import { rulesScreen, settingsScreen, statsScreen, titleScreen } from './ui/screens.ts';
 import { setupScreen } from './ui/setup.ts';
 import { tutorialScreen } from './ui/tutorial.ts';
@@ -35,7 +36,8 @@ function applySettings() {
   setCardStyle(settings.cardStyle);
   document.documentElement.classList.toggle('reduced', prefersReducedMotion(settings));
   document.documentElement.style.setProperty('--anim', prefersReducedMotion(settings) ? '0.01' : String(1 / settings.animationSpeed));
-  audio.configure({ sfxOn: settings.sfxOn, sfxVolume: settings.sfxVolume, ambOn: settings.ambienceOn, ambVolume: settings.ambienceVolume });
+  audio.configure({ sfxOn: settings.sfxOn, sfxVolume: settings.sfxVolume, uiVolume: settings.uiVolume, ambOn: settings.ambienceOn, ambVolume: settings.ambienceVolume });
+  game?.applyView();
   document.querySelectorAll<HTMLElement>('.table-screen').forEach((t) => (t.dataset.table = settings.table));
 }
 
@@ -84,7 +86,15 @@ onUpdateReady(() => {
 if (dev) void import('./dev/devtools.ts').then((m) => m.mountDevTools(ctx, () => game));
 
 // Expose a tiny hook for automated end-to-end checks (read-only state access).
-(window as unknown as { __scopa: unknown }).__scopa = { get state() { return game?.state ?? null; }, ctx };
+(window as unknown as { __scopa: unknown }).__scopa = {
+  get state() { return game?.state ?? null; },
+  ctx,
+  get scene() { return game?.sceneInfo ?? null; },
+  sceneScreenOf: (c: number) => game?.sceneScreenOf(c) ?? null,
+  settle: () => game?.settle3d(),
+  get domAnimations() { return runningCount(); },
+  audio: { get log() { return audio.log; }, get recorded() { return !audio.recordedFailed; }, volumeFor: (c: 'cards' | 'jingle' | 'ui') => audio.volumeFor(c) },
+};
 
 if (!settings.tutorialSeen && !loadMatch()) go('tutorial');
 else go('title');

@@ -60,6 +60,9 @@ export function settingsPanel(ctx: AppCtx, onChange?: () => void): HTMLElement {
   const motion = h('select', { id: 'rm', 'aria-label': 'Reduced motion' }, ...[['system', 'Follow device'], ['on', 'On'], ['off', 'Off']].map(([v, l]) => h('option', { value: v }, l))) as HTMLSelectElement;
   motion.value = s.reducedMotion;
   motion.onchange = () => { s.reducedMotion = motion.value as Settings['reducedMotion']; save(); };
+  const view = h('select', { id: 'tv', 'aria-describedby': 'tv-d' }, ...[['auto', 'Automatic'], ['3d', '3D table'], ['2d', 'Flat table']].map(([v, l]) => h('option', { value: v }, l))) as HTMLSelectElement;
+  view.value = s.tableView;
+  view.onchange = () => { s.tableView = view.value as Settings['tableView']; save(); };
   return h('div', { class: 'stack' },
     h('h3', {}, 'Rules helper'),
     toggle('Card value badges', 'Show each card’s capture value in its corner. You can also hold the 1–10 button.', () => s.valueBadges, (v) => { s.valueBadges = v; save(); }),
@@ -69,11 +72,13 @@ export function settingsPanel(ctx: AppCtx, onChange?: () => void): HTMLElement {
     h('h3', {}, 'Sound'),
     toggle('Sound effects', 'Card sounds, the scopa flourish and scoring ticks.', () => s.sfxOn, (v) => { s.sfxOn = v; audio.unlock(); save(); }),
     slider('Effects volume', () => s.sfxVolume, (v) => { s.sfxVolume = v; save(); }),
+    slider('Interface volume', () => s.uiVolume, (v) => { s.uiVolume = v; save(); }),
     toggle('Café ambience', 'A very quiet room in the background.', () => s.ambienceOn, (v) => { s.ambienceOn = v; audio.unlock(); save(); }),
     slider('Ambience volume', () => s.ambienceVolume, (v) => { s.ambienceVolume = v; save(); }),
     toggle('Sound captions', 'Show a short caption for meaningful sounds.', () => s.captions, (v) => { s.captions = v; save(); }),
     h('h3', {}, 'Motion'),
     h('div', { class: 'toggle' }, h('label', { for: 'rm' }, 'Reduced motion'), motion),
+    h('div', { class: 'toggle' }, h('div', {}, h('label', { for: 'tv' }, 'Table'), h('div', { class: 'small muted', id: 'tv-d' }, 'The 3D table adds depth, light and shadow. Automatic uses it when this device can carry it smoothly; reduced motion always uses the flat table.')), view),
     slider('Computer players’ pace (slower → faster)', () => 2.25 - s.aiSpeed, (v) => { s.aiSpeed = Math.round((2.25 - v) * 100) / 100; save(); }, 0.25, 2, 0.25),
     h('h3', {}, 'Look'),
     cosmeticsPicker(ctx, onChange),

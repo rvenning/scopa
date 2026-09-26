@@ -1,9 +1,33 @@
 /**
- * All sound is synthesised here with WebAudio: no recordings, nothing streamed.
- * The context is created only after a user gesture, sounds never block play,
- * and every meaningful cue has a caption for players who cannot hear it.
+ * Sound for the table: one place that decides what is heard, how loudly and where.
+ *
+ * - Card sounds and the scopa / match jingles are recordings played through Howler
+ *   (recorded.ts, loaded after the first gesture). Until they have loaded, or if they
+ *   cannot load, the synthesised voice (synth.ts) plays the same cue instead.
+ * - Interface cues (your turn, not allowed, score ticks) are always synthesised.
+ * - Volume categories: cards and jingles follow "Effects volume", interface cues
+ *   "Interface volume", the café loop "Ambience volume". Turning sound effects off
+ *   silences every cue; the ambience has its own switch.
+ * - Each card sound can be placed left or right to follow the card (subtle stereo).
+ * - Sounds react to engine events only and never hold up play; every meaningful cue
+ *   still has a caption for players who cannot hear it, whether or not sound is on.
  */
-export type Cue = 'place' | 'gather' | 'shuffle' | 'deal' | 'scopa' | 'tick' | 'win' | 'turn' | 'error' | 'select';
+import type { RecordedEngine, Sample } from './recorded.ts';
+import { SynthVoice, type Cue } from './synth.ts';
+
+export type { Cue };
+export type Category = 'cards' | 'jingle' | 'ui';
+
+export const CATEGORY: Record<Cue, Category> = {
+  place: 'cards', gather: 'cards', shuffle: 'cards', deal: 'cards', select: 'cards',
+  scopa: 'jingle', win: 'jingle',
+  tick: 'ui', turn: 'ui', error: 'ui',
+};
+
+/** Level of each category relative to its slider, so a full slider is still a quiet table. */
+const BASE_LEVEL: Record<Category, number> = { cards: 0.9, jingle: 0.55, ui: 0.8 };
+/** How far left or right a card sound may sit. Subtle on purpose. */
+export const MAX_PAN = 0.45;
 
 const CAPTIONS: Partial<Record<Cue, string>> = {
   shuffle: 'Cards shuffled',
@@ -14,197 +38,111 @@ const CAPTIONS: Partial<Record<Cue, string>> = {
   error: 'Not allowed',
 };
 
-class Audio {
-  ctx: AudioContext | null = null;
-  private sfx: GainNode | null = null;
-  private amb: GainNode | null = null;
-  private ambNodes: AudioNode[] = [];
-  private ambTimer: number | null = null;
-  sfxOn = true;
-  sfxVolume = 0.7;
-  ambOn = false;
-  ambVolume = 0.35;
-  onCaption: ((text: string) => void) | null = null;
-  private noiseBuf: AudioBuffer | null = null;
-  private variant = 0;
+export interface AudioSettings { sfxOn: boolean; sfxVolume: number; uiVolume: number; ambOn: boolean; ambVolume: number }
+export interface PlayOpts { pan?: number; count?: number }
+export interface LogEntry { cue: Cue; via: 'recorded' | 'synth' | 'muted'; volume: number; pan: number }
 
-  /** Call from a user gesture. Safe to call repeatedly. */
-  unlock() {
-    if (this.ctx) { if (this.ctx.state === 'suspended') void this.ctx.resume(); return; }
-    try {
-      // Respect the iOS silent switch where supported.
-      const nav = navigator as Navigator & { audioSession?: { type: string } };
-      if (nav.audioSession) nav.audioSession.type = 'ambient';
-      const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      this.ctx = new AC();
-      this.sfx = this.ctx.createGain();
-      this.sfx.connect(this.ctx.destination);
-      this.amb = this.ctx.createGain();
-      this.amb.connect(this.ctx.destination);
-      const len = this.ctx.sampleRate;
-      this.noiseBuf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
-      const d = this.noiseBuf.getChannelData(0);
-      let seed = 12345;
-      for (let i = 0; i < len; i++) { seed = (seed * 1103515245 + 12345) >>> 0; d[i] = (seed / 2 ** 31) - 1; }
-      this.apply();
-    } catch { this.ctx = null; }
+type Loader = () => Promise<{ createRecorded(onReady: () => void, onError: (why: string) => void): RecordedEngine }>;
+
+export class AudioDirector {
+  private synth: SynthVoice;
+  private rec: RecordedEngine | null = null;
+  private loading = false;
+  private variant = 0;
+  private s: AudioSettings = { sfxOn: true, sfxVolume: 0.7, uiVolume: 0.6, ambOn: false, ambVolume: 0.35 };
+  onCaption: ((text: string) => void) | null = null;
+  /** The last few cues and how they were played; read by tests. */
+  readonly log: LogEntry[] = [];
+  recordedFailed = false;
+
+  private loader: Loader;
+
+  constructor(loader: Loader = () => import('./recorded.ts'), synth?: SynthVoice) {
+    this.loader = loader;
+    this.synth = synth ?? new SynthVoice();
   }
 
-  configure(o: { sfxOn: boolean; sfxVolume: number; ambOn: boolean; ambVolume: number }) {
-    this.sfxOn = o.sfxOn; this.sfxVolume = o.sfxVolume; this.ambOn = o.ambOn; this.ambVolume = o.ambVolume;
+  /** Call from a user gesture. Starts WebAudio and fetches the recordings in the background. */
+  unlock() {
+    this.synth.unlock();
+    if (!this.rec && !this.loading && !this.recordedFailed) {
+      this.loading = true;
+      this.loader().then((m) => {
+        this.rec = m.createRecorded(() => this.apply(), () => { this.recordedFailed = true; this.rec = null; this.apply(); });
+      }).catch(() => { this.recordedFailed = true; }).finally(() => { this.loading = false; });
+    }
     this.apply();
   }
 
+  configure(s: AudioSettings) {
+    this.s = { ...s };
+    this.apply();
+  }
+
+  get settings(): Readonly<AudioSettings> { return this.s; }
+
+  /** Linear volume for a category, 0 when muted. */
+  volumeFor(cat: Category): number {
+    if (!this.s.sfxOn) return 0;
+    return (cat === 'ui' ? this.s.uiVolume : this.s.sfxVolume) * BASE_LEVEL[cat];
+  }
+
+  private recordedReady() { return !!this.rec && this.rec.loaded; }
+
   private apply() {
-    if (!this.ctx || !this.sfx || !this.amb) return;
-    const t = this.ctx.currentTime;
-    this.sfx.gain.setTargetAtTime(this.sfxOn ? this.sfxVolume : 0, t, 0.02);
-    this.amb.gain.setTargetAtTime(this.ambOn ? this.ambVolume * 0.5 : 0, t, 0.4);
-    if (this.ambOn && !this.ambNodes.length) this.startAmbience();
-    if (!this.ambOn && this.ambNodes.length) this.stopAmbience();
+    const amb = this.s.ambOn ? this.s.ambVolume : 0;
+    // The recorded loop takes over the ambience once it can; the synthesised room stops.
+    const recAmb = this.recordedReady();
+    this.synth.setVolumes({ sfx: this.volumeFor('cards'), ui: this.volumeFor('ui'), amb: recAmb ? 0 : amb });
+    if (recAmb) this.rec!.ambience(amb * 0.6);
   }
 
   suspendIfIdle() {
-    if (this.ctx && !this.ambOn && this.ctx.state === 'running') void this.ctx.suspend();
+    this.synth.suspendIfIdle();
+    this.rec?.suspend();
   }
 
-  play(cue: Cue, captionsOn: boolean) {
+  play(cue: Cue, captionsOn: boolean, o: PlayOpts = {}) {
     if (captionsOn && CAPTIONS[cue]) this.onCaption?.(CAPTIONS[cue] as string);
-    if (!this.ctx || !this.sfx || !this.sfxOn) return;
-    if (this.ctx.state === 'suspended') void this.ctx.resume();
-    try { this[cue](); } catch { /* audio must never break play */ }
+    const cat = CATEGORY[cue];
+    const volume = this.volumeFor(cat);
+    const pan = Math.max(-MAX_PAN, Math.min(MAX_PAN, (o.pan ?? 0) * MAX_PAN));
+    if (volume <= 0) { this.note({ cue, via: 'muted', volume: 0, pan }); return; }
+    const sample = cat === 'ui' ? null : this.sampleFor(cue);
+    if (sample && this.recordedReady()) {
+      try {
+        if (cue === 'deal') {
+          // One slide per card dealt, quickly, like cards leaving the dealer's hand.
+          const n = Math.max(1, Math.min(6, o.count ?? 3));
+          for (let i = 0; i < n; i++) setTimeout(() => this.rec?.play(`slide${1 + ((this.variant + i) % 4)}` as Sample, volume * 0.8, pan, 0.96 + (i % 3) * 0.04), i * 70);
+          this.variant += n;
+        } else this.rec!.play(sample, volume, pan, cue === 'place' ? 0.97 + (this.variant % 3) * 0.03 : 1);
+        this.note({ cue, via: 'recorded', volume, pan });
+        return;
+      } catch { /* fall through to the synthesised voice */ }
+    }
+    this.synth.play(cue, cat === 'ui' ? 'ui' : 'sfx');
+    this.note({ cue, via: 'synth', volume, pan });
   }
 
-  // ---------------------------------------------------------------- primitives
-
-  private noise(at: number, dur: number, freq: number, q: number, gain: number, type: BiquadFilterType = 'bandpass') {
-    const c = this.ctx as AudioContext;
-    const src = c.createBufferSource();
-    src.buffer = this.noiseBuf;
-    src.playbackRate.value = 0.8 + Math.random() * 0.4;
-    const f = c.createBiquadFilter();
-    f.type = type; f.frequency.value = freq; f.Q.value = q;
-    const g = c.createGain();
-    g.gain.setValueAtTime(0, at);
-    g.gain.linearRampToValueAtTime(gain, at + 0.004);
-    g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
-    src.connect(f).connect(g).connect(this.sfx as GainNode);
-    src.start(at, Math.random() * 0.5, dur + 0.05);
-    src.onended = () => { src.disconnect(); f.disconnect(); g.disconnect(); };
-  }
-
-  private tone(at: number, freq: number, dur: number, gain: number, type: OscillatorType = 'triangle') {
-    const c = this.ctx as AudioContext;
-    const o = c.createOscillator();
-    o.type = type; o.frequency.value = freq;
-    const g = c.createGain();
-    g.gain.setValueAtTime(0, at);
-    g.gain.linearRampToValueAtTime(gain, at + 0.008);
-    g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
-    o.connect(g).connect(this.sfx as GainNode);
-    o.start(at); o.stop(at + dur + 0.05);
-    o.onended = () => { o.disconnect(); g.disconnect(); };
-  }
-
-  private get now() { return (this.ctx as AudioContext).currentTime + 0.01; }
-
-  // ---------------------------------------------------------------- cues
-
-  /** Several varied card-on-table sounds: a paper slap with a soft body. */
-  private place() {
-    const t = this.now;
-    const v = this.variant++ % 4;
-    const freqs = [2350, 2850, 2050, 3200];
-    this.noise(t, 0.065 + v * 0.008, freqs[v], 0.85, 0.34);
-    this.noise(t + .004, 0.055, 340 + v * 42, 1.1, 0.24, 'lowpass');
-    this.tone(t + .006, 118 + v * 7, .09, .018, 'sine');
-  }
-  private select() {
-    const t = this.now;
-    this.noise(t, 0.032, 3900, 1.3, 0.12);
-    this.tone(t, 720, .055, .022, 'sine');
-  }
-  private deal() {
-    const t = this.now;
-    // Three quick paper flicks make a deal read as cards rather than a UI click.
-    for (let i = 0; i < 3; i++) {
-      this.noise(t + i * .055, 0.045, 3150 + i * 260, 1.05, 0.15);
-      this.noise(t + i * .055 + .005, .035, 430, .8, .08, 'lowpass');
+  private sampleFor(cue: Cue): Sample | null {
+    const v = this.variant++;
+    switch (cue) {
+      case 'place': return `place${1 + (v % 4)}` as Sample;
+      case 'gather': return `capture${1 + (v % 4)}` as Sample;
+      case 'deal': return 'slide1';
+      case 'shuffle': return 'shuffle';
+      case 'select': return 'select';
+      case 'scopa': return 'scopa';
+      case 'win': return 'win';
+      default: return null;
     }
   }
-  private gather() {
-    const t = this.now;
-    for (let i = 0; i < 4; i++) this.noise(t + i * 0.038, 0.075, 1650 + i * 230, 0.75, 0.19);
-    this.noise(t + 0.17, 0.085, 285, .9, 0.22, 'lowpass');
-    this.tone(t + .18, 145, .12, .016, 'sine');
-  }
-  private shuffle() {
-    const t = this.now;
-    for (let i = 0; i < 26; i++) this.noise(t + i * 0.022 + Math.random() * 0.006, 0.03, 3000 + Math.random() * 1600, 1.4, 0.16);
-    for (let i = 0; i < 20; i++) this.noise(t + 0.7 + i * 0.02, 0.03, 2600 + Math.random() * 1600, 1.4, 0.14);
-  }
-  /** A soft plucked arpeggio, like a mandolin in the next room. */
-  private scopa() {
-    const t = this.now;
-    const notes = [392, 493.9, 587.3, 784];
-    notes.forEach((f, i) => {
-      const at = t + i * .075;
-      this.tone(at, f, .78, .075, 'triangle');
-      this.tone(at + .012, f * 2, .28, .018, 'sine');
-      this.noise(at, .038, 2700 + i * 260, 2.2, .035);
-    });
-    this.tone(t + .34, 1174.7, .7, .035, 'sine');
-  }
-  private tick() {
-    const t = this.now;
-    this.tone(t, 1320, 0.06, 0.07, 'sine');
-    this.noise(t, 0.03, 5000, 2, 0.06);
-  }
-  private turn() {
-    const t = this.now;
-    this.tone(t, 659.3, 0.22, 0.033, 'sine');
-    this.tone(t + 0.085, 880, 0.28, 0.032, 'sine');
-  }
-  private error() {
-    const t = this.now;
-    this.tone(t, 220, 0.18, 0.06, 'triangle');
-  }
-  private win() {
-    const t = this.now;
-    const seq = [[261.6, 329.6, 392], [349.2, 440, 523.3], [392, 493.9, 587.3], [523.3, 659.3, 784]];
-    seq.forEach((ch, i) => ch.forEach((f, j) => this.tone(t + i * 0.26 + j * 0.045, f, 1.05, 0.045, j === 0 ? 'triangle' : 'sine')));
-  }
 
-  // ---------------------------------------------------------------- ambience
-
-  private startAmbience() {
-    const c = this.ctx as AudioContext;
-    const src = c.createBufferSource();
-    src.buffer = this.noiseBuf; src.loop = true;
-    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420;
-    const lp2 = c.createBiquadFilter(); lp2.type = 'lowpass'; lp2.frequency.value = 900;
-    const g = c.createGain(); g.gain.value = 0.25;
-    src.connect(lp).connect(lp2).connect(g).connect(this.amb as GainNode);
-    src.start();
-    this.ambNodes = [src, lp, lp2, g];
-    const clink = () => {
-      if (!this.ctx || !this.ambOn) return;
-      const t = this.ctx.currentTime + 0.05;
-      const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = 2200 + Math.random() * 1400;
-      const gg = c.createGain(); gg.gain.setValueAtTime(0, t); gg.gain.linearRampToValueAtTime(0.02, t + 0.004); gg.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
-      o.connect(gg).connect(this.amb as GainNode); o.start(t); o.stop(t + 0.4);
-      o.onended = () => { o.disconnect(); gg.disconnect(); };
-      this.ambTimer = window.setTimeout(clink, 2500 + Math.random() * 7000);
-    };
-    this.ambTimer = window.setTimeout(clink, 3000);
-  }
-
-  private stopAmbience() {
-    for (const n of this.ambNodes) { try { (n as AudioBufferSourceNode).stop?.(); } catch { /* */ } n.disconnect(); }
-    this.ambNodes = [];
-    if (this.ambTimer) clearTimeout(this.ambTimer);
-    this.ambTimer = null;
+  private note(e: LogEntry) {
+    this.log.push(e);
+    if (this.log.length > 60) this.log.shift();
   }
 }
 
-export const audio = new Audio();
+export const audio = new AudioDirector();

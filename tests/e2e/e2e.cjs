@@ -51,6 +51,59 @@ async function playUntil(d, cond, maxMoves = 80) {
   return d.js(cond);
 }
 
+/** Distance (px) from each DOM table card's centre to where the 3D table painted that card. */
+const alignment = () => [...document.querySelectorAll('.table-cards .card')].map((e) => { const r = e.getBoundingClientRect(); const p = window.__scopa.sceneScreenOf(Number(e.dataset.card)); return p ? Math.hypot(p.x - (r.left + r.width / 2), p.y - (r.top + r.height / 2)) : 999; });
+
+/** Every screen size, both fixtures, with a two-option card selected: nothing clipped or colliding. */
+async function matrix(d, url, prefix) {
+  const sizes = [
+    ['iphone-se', 320, 568, 2], ['iphone-15', 393, 852, 3], ['iphone-15-land', 852, 393, 3], ['pixel-7', 412, 915, 2.6], ['android-land', 915, 412, 2.6],
+    ['ipad-port', 768, 1024, 2], ['ipad-land', 1024, 768, 2], ['desktop', 1440, 900, 1], ['desktop-small', 1024, 640, 1], ['laptop-125pct', 1600, 860, 1], ['desktop-wide', 2000, 990, 1],
+  ];
+  const check = () => {
+    const vw = innerWidth, vh = innerHeight;
+    const inside = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.left >= -1 && r.top >= -1 && r.right <= vw + 1 && r.bottom <= vh + 1; };
+    const bad = [];
+    for (const sel of ['.hand .card', '.tray button', '.topbar button', '.seat', '.table-cards .card', '.handoff .btn']) document.querySelectorAll(sel).forEach((e) => { if (!inside(e)) bad.push(sel + ' ' + (e.dataset.card ?? e.textContent.slice(0, 20))); });
+    const small = [...document.querySelectorAll('.hand .card, .tray button, .topbar button')].filter((e) => { const r = e.getBoundingClientRect(); return r.width < 40 || r.height < 40; }).map((e) => e.className + ' ' + Math.round(e.getBoundingClientRect().width) + 'x' + Math.round(e.getBoundingClientRect().height));
+    // Regions must not collide, and nothing may be cut off inside a seat panel.
+    const boxes = (sel) => [...document.querySelectorAll(sel)].map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0);
+    const hit = (a, b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
+    for (const [x, y] of [['.seat', '.tray .msg'], ['.seat', '.tray button'], ['.seat', '.table-cards .card'], ['.hand .card', '.tray button'], ['.hand .card', '.tray .msg'],['.table-cards .card', '.tray .msg'], ['.tablemeta', '.table-cards .card'], ['.pile-spot', '.seat'], ['.pile-spot', '.table-cards .card'], ['.pile-spot', '.tray button'], ['.pile-spot', '.hand .card'], ['.tablemeta', '.seat'], ['.tablemeta', '.tray button'], ['.tablemeta', '.tray .msg']]) for (const a of boxes(x)) for (const b of boxes(y)) if (hit(a, b)) bad.push(`${x} overlaps ${y} [${[a.top, a.bottom, b.top, b.bottom].map(Math.round)}]`);
+    // Text clipping only: the invisible pile anchors placed outside a panel are left out of the measurement.
+    const spots = [...document.querySelectorAll('.seat > .pile-spot')];
+    spots.forEach((e) => { e.style.display = 'none'; });
+    document.querySelectorAll('.seat').forEach((e) => { if (e.scrollWidth > e.clientWidth + 2) bad.push('seat content clipped: ' + e.textContent.slice(0, 16)); });
+    spots.forEach((e) => { e.style.display = ''; });
+    return { bad: [...new Set(bad)], small, overflow: document.documentElement.scrollWidth > vw + 1 };
+  };
+  for (const [fixture, label] of [['sci', 'scientifico-10-cards'], ['multi', 'classic-2p']]) {
+    await prime(d, { fixture: FIX[fixture] });
+    for (const [name, w, h, dpr] of sizes) {
+      await d.resize(w, h, dpr);
+      await d.goto(url);
+      await d.tapText('Continue match');
+      await d.waitFor(() => document.querySelectorAll('.hand .card[data-card]').length > 0, 6000);
+      // In 3D the pile spots only exist once the table has mounted, so wait for it before measuring.
+      if (prefix) await d.waitFor(() => window.__scopa.scene && window.__scopa.scene.mounted, 15000);
+      // Select the card with two capture options where there is one, so the raised card and the option buttons are both on screen.
+      const two = '.hand .card[data-card="16"]';
+      await d.tap(await d.js((s) => !!document.querySelector(s), two) ? two : '.hand .card[data-card]');
+      await d.wait(400);
+      const r = await d.js(check);
+      if (prefix) {
+        await d.waitFor(() => window.__scopa.scene.moving === 0, 15000);
+        const align = await d.js(alignment);
+        d.ok(`${prefix}${label} @ ${name}: 3D cards under their DOM boxes`, align.every((x) => x < 6), JSON.stringify(align.map(Math.round)));
+      }
+      await d.shot(`60-${prefix}${label}-${name}`);
+      d.ok(`${prefix}${label} @ ${name} ${w}x${h}: nothing clipped, targets >= 40px, no sideways scroll`, r.bad.length === 0 && r.small.length === 0 && !r.overflow, JSON.stringify(r));
+      await d.key('Escape');
+    }
+  }
+  await d.resize(390, 844, 2);
+}
+
 const scenarios = {
   async classicVsAi(d) {
     await prime(d);
@@ -204,43 +257,8 @@ const scenarios = {
     d.ok('a digit chooses a capture and plays it', await d.waitFor(() => window.__scopa.state.hand.plays === 1));
   },
 
-  async deviceMatrix(d) {
-    const sizes = [
-      ['iphone-se', 320, 568, 2], ['iphone-15', 393, 852, 3], ['iphone-15-land', 852, 393, 3], ['pixel-7', 412, 915, 2.6], ['android-land', 915, 412, 2.6],
-      ['ipad-port', 768, 1024, 2], ['ipad-land', 1024, 768, 2], ['desktop', 1440, 900, 1], ['desktop-small', 1024, 640, 1], ['laptop-125pct', 1600, 860, 1], ['desktop-wide', 2000, 990, 1],
-    ];
-    const check = () => {
-      const vw = innerWidth, vh = innerHeight;
-      const inside = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.left >= -1 && r.top >= -1 && r.right <= vw + 1 && r.bottom <= vh + 1; };
-      const bad = [];
-      for (const sel of ['.hand .card', '.tray button', '.topbar button', '.seat', '.table-cards .card', '.handoff .btn']) document.querySelectorAll(sel).forEach((e) => { if (!inside(e)) bad.push(sel + ' ' + (e.dataset.card ?? e.textContent.slice(0, 20))); });
-      const small = [...document.querySelectorAll('.hand .card, .tray button, .topbar button')].filter((e) => { const r = e.getBoundingClientRect(); return r.width < 40 || r.height < 40; }).map((e) => e.className + ' ' + Math.round(e.getBoundingClientRect().width) + 'x' + Math.round(e.getBoundingClientRect().height));
-      // Regions must not collide, and nothing may be cut off inside a seat panel.
-      const boxes = (sel) => [...document.querySelectorAll(sel)].map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0);
-      const hit = (a, b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
-      for (const [x, y] of [['.seat', '.tray .msg'], ['.seat', '.tray button'], ['.seat', '.table-cards .card'], ['.hand .card', '.tray button'], ['.hand .card', '.tray .msg'],['.table-cards .card', '.tray .msg'], ['.tablemeta', '.table-cards .card']]) for (const a of boxes(x)) for (const b of boxes(y)) if (hit(a, b)) bad.push(`${x} overlaps ${y} [${[a.top, a.bottom, b.top, b.bottom].map(Math.round)}]`);
-      document.querySelectorAll('.seat').forEach((e) => { if (e.scrollWidth > e.clientWidth + 2) bad.push('seat content clipped: ' + e.textContent.slice(0, 16)); });
-      return { bad: [...new Set(bad)], small, overflow: document.documentElement.scrollWidth > vw + 1 };
-    };
-    for (const [fixture, label] of [['sci', 'scientifico-10-cards'], ['multi', 'classic-2p']]) {
-      await prime(d, { fixture: FIX[fixture] });
-      for (const [name, w, h, dpr] of sizes) {
-        await d.resize(w, h, dpr);
-        await d.goto(BASE);
-        await d.tapText('Continue match');
-        await d.waitFor(() => document.querySelectorAll('.hand .card[data-card]').length > 0, 6000);
-        // Select the card with two capture options where there is one, so the raised card and the option buttons are both on screen.
-        const two = '.hand .card[data-card="16"]';
-        await d.tap(await d.js((s) => !!document.querySelector(s), two) ? two : '.hand .card[data-card]');
-        await d.wait(400);
-        const r = await d.js(check);
-        await d.shot(`60-${label}-${name}`);
-        d.ok(`${label} @ ${name} ${w}x${h}: nothing clipped, targets >= 40px, no sideways scroll`, r.bad.length === 0 && r.small.length === 0 && !r.overflow, JSON.stringify(r));
-        await d.key('Escape');
-      }
-    }
-    await d.resize(390, 844, 2);
-  },
+  async deviceMatrix(d) { await matrix(d, BASE, ''); },
+  async deviceMatrix3d(d) { await matrix(d, BASE + '?view=3d', '3d-'); },
 
   // The next two need the production build: node tests/e2e/e2e.cjs http://localhost:8135/ --only offline
   async offline(d) {
@@ -398,6 +416,139 @@ const scenarios = {
     d.ok('back to the title', await d.waitFor(() => /Scopa/.test(document.querySelector('.wordmark')?.textContent || '')));
     d.ok('tutorial marked as seen', await d.js(() => JSON.parse(localStorage.getItem('scopa:settings')).tutorialSeen === true));
   },
+  // ---------------------------------------------------------------- premium presentation
+  async table3d(d) {
+    await prime(d, { fixture: FIX.multi });
+    await d.goto(BASE + '?view=3d');
+    await d.tapText('Continue match');
+    d.ok('the 3D table mounts (lazy chunk loaded, WebGL 2 canvas)', await d.waitFor(() => window.__scopa.scene && window.__scopa.scene.mounted === true, 15000));
+    d.ok('the canvas sits under the DOM table and ignores input', await d.js(() => { const c = document.querySelector('canvas.table3d'); return !!c && getComputedStyle(c).zIndex === '0' && getComputedStyle(c).pointerEvents === 'none'; }));
+    await d.waitFor(() => window.__scopa.scene.moving === 0);
+    d.ok('the DOM table cards stay in place, invisible, for tapping and screen readers', await d.js(() => [...document.querySelectorAll('.table-cards .card')].every((e) => getComputedStyle(e.querySelector('img')).opacity === '0' && e.getAttribute('aria-label'))));
+    const align = await d.js(alignment);
+    d.ok('each 3D card is painted under its DOM box', align.length === 4 && align.every((x) => x < 6), JSON.stringify(align.map(Math.round)));
+    await d.shot('70-3d-table');
+    // Idle: nothing moves, so nothing is drawn.
+    const f0 = await d.js(() => window.__scopa.scene.frames);
+    await d.wait(1200);
+    d.ok('an idle 3D table draws no frames', (await d.js(() => window.__scopa.scene.frames)) === f0);
+    // A capture through the DOM layer.
+    await d.tap('.hand .card[data-card="16"]');
+    d.ok('two capture options offered in 3D', await d.waitFor(() => document.querySelectorAll('.tray .opt-btn').length === 2));
+    d.ok('the 3D cards glide to the reflowed table and rest there', await d.waitFor(() => window.__scopa.scene.moving === 0 && window.__scopa.scene.mismatches.length === 0));
+    const align2 = await d.js(alignment);
+    d.ok('still aligned after the tray grew', align2.every((x) => x < 6), JSON.stringify(align2.map(Math.round)));
+    await d.shot('71-3d-options');
+    await d.tap('.tray .opt-btn');
+    await d.wait(250);
+    d.ok('cards are in flight after the capture', await d.js(() => window.__scopa.scene.moving > 0));
+    await d.shot('72-3d-capture-flight');
+    d.ok('flights come to rest exactly where the engine says', await d.waitFor(() => window.__scopa.scene.moving === 0 && window.__scopa.scene.mismatches.length === 0, 8000));
+    d.ok('the captured cards are in the pile', await d.js(() => window.__scopa.state.hand.captures[0].length === 3));
+    await d.shot('73-3d-after-capture');
+    // Play on through the hand against the computer, all in 3D.
+    const r = await playUntil(d, () => window.__scopa.state.phase !== 'play', 60);
+    d.ok('a whole hand plays in 3D', r || await d.waitFor(() => window.__scopa.state.phase !== 'play', 30000));
+    d.ok('still the 3D table (no fallback)', await d.js(() => window.__scopa.scene.view === '3d' && window.__scopa.scene.mounted));
+  },
+
+  async fallback2d(d) {
+    // No WebGL 2 at all: the forced 3D view must still give way to the flat table.
+    const added = await d.send('Page.addScriptToEvaluateOnNewDocument', { source: "(() => { const g = HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext = function (t, o) { return t === 'webgl2' ? null : g.call(this, t, o); }; })();" });
+    await prime(d, { fixture: FIX.multi });
+    await d.goto(BASE + '?view=3d');
+    await d.tapText('Continue match');
+    await d.waitFor(() => !!window.__scopa.scene);
+    await d.wait(800);
+    d.ok('without WebGL 2 the flat table is used', await d.js(() => window.__scopa.scene.view === '2d' && /WebGL/.test(window.__scopa.scene.reason) && !document.querySelector('canvas.table3d') && !document.querySelector('.view3d')));
+    d.ok('flat table cards are visible', await d.js(() => [...document.querySelectorAll('.table-cards .card img')].every((i) => getComputedStyle(i).opacity === '1')));
+    await d.tap('.hand .card[data-card="16"]');
+    await d.waitFor(() => document.querySelectorAll('.tray .opt-btn').length === 2);
+    await d.tap('.tray .opt-btn');
+    d.ok('the game plays normally in the fallback', await d.waitFor(() => window.__scopa.state.hand.captures[0].length === 3));
+    await d.send('Page.removeScriptToEvaluateOnNewDocument', { identifier: added.result.identifier });
+    // Automatic on a software renderer (headless Edge) counts as low-powered and stays flat.
+    await prime(d, { fixture: FIX.multi });
+    await d.tapText('Continue match');
+    await d.waitFor(() => !!window.__scopa.scene);
+    await d.wait(600);
+    d.ok('Automatic stays flat on a software renderer', await d.js(() => window.__scopa.scene.view === '2d' && !document.querySelector('canvas.table3d')));
+    // Reduced motion always uses the flat table, even when 3D is forced.
+    await prime(d, { fixture: FIX.multi, settings: { reducedMotion: 'on', tableView: '3d' } });
+    await d.goto(BASE + '?view=3d');
+    await d.tapText('Continue match');
+    await d.waitFor(() => !!window.__scopa.scene);
+    await d.wait(600);
+    d.ok('reduced motion uses the flat table', await d.js(() => window.__scopa.scene.view === '2d' && /reduced motion/.test(window.__scopa.scene.reason) && !document.querySelector('canvas.table3d')));
+    await d.tap('.hand .card[data-card="16"]');
+    await d.waitFor(() => document.querySelectorAll('.tray .opt-btn').length === 2);
+    await d.tap('.tray .opt-btn');
+    d.ok('reduced motion: the move is committed at once', await d.waitFor(() => window.__scopa.state.hand.captures[0].length === 3, 2000));
+    d.ok('reduced motion: nothing travels (fades only)', await d.js(() => document.getAnimations().every((a) => { const k = a.effect && a.effect.getKeyframes ? a.effect.getKeyframes() : []; return !k.some((f) => f.transform && f.transform !== 'none'); })));
+  },
+
+  async audioSettings(d) {
+    // Sound off: every cue is muted in both voices.
+    await prime(d, { fixture: FIX.multi, settings: { sfxOn: false } });
+    await d.tapText('Continue match');
+    await d.tap('.hand .card[data-card="16"]');
+    await d.waitFor(() => document.querySelectorAll('.tray .opt-btn').length === 2);
+    await d.tap('.tray .opt-btn');
+    await d.waitFor(() => window.__scopa.state.hand.captures[0].length === 3);
+    await d.wait(300);
+    const muted = await d.js(() => window.__scopa.audio.log.map((e) => e.via));
+    d.ok('with sound effects off nothing plays', muted.length > 0 && muted.every((v) => v === 'muted'), JSON.stringify(muted));
+    // Sound on: recorded card sounds through Howler, interface cues synthesised, each on its own volume.
+    await prime(d, { fixture: FIX.multi, settings: { sfxOn: true, sfxVolume: 0.6, uiVolume: 0 } });
+    await d.tapText('Continue match');
+    await d.wait(1500);
+    await d.tap('.hand .card[data-card="16"]');
+    await d.waitFor(() => document.querySelectorAll('.tray .opt-btn').length === 2);
+    await d.tap('.tray .opt-btn');
+    await d.waitFor(() => window.__scopa.state.hand.captures[0].length === 3);
+    await d.wait(300);
+    const log = await d.js(() => window.__scopa.audio.log);
+    const gather = log.filter((e) => e.cue === 'gather').at(-1);
+    d.ok('the capture sound is the recording, at the effects volume', !!gather && gather.via === 'recorded' && Math.abs(gather.volume - 0.6 * 0.9) < 1e-6, JSON.stringify(gather));
+    d.ok('the capture sound is placed in stereo, subtly', !!gather && Math.abs(gather.pan) <= 0.45);
+    d.ok('interface cues follow their own (zero) volume', await d.js(() => window.__scopa.audio.volumeFor('ui') === 0 && window.__scopa.audio.log.filter((e) => e.cue === 'turn' || e.cue === 'error' || e.cue === 'tick').every((e) => e.via === 'muted')));
+  },
+
+  async interruption3d(d) {
+    await prime(d, { fixture: FIX.multi });
+    await d.goto(BASE + '?view=3d');
+    await d.tapText('Continue match');
+    await d.waitFor(() => window.__scopa.scene && window.__scopa.scene.mounted === true, 15000);
+    // Capture, and while the cards are flying: resize, open and close the menu, select and play.
+    await d.tap('.hand .card[data-card="16"]');
+    await d.waitFor(() => document.querySelectorAll('.tray .opt-btn').length === 2);
+    await d.tap('.tray .opt-btn');
+    await d.wait(120);
+    d.ok('in flight', await d.js(() => window.__scopa.scene.moving > 0));
+    await d.resize(844, 390, 2);
+    await d.wait(90);
+    await d.resize(390, 844, 2);
+    await d.tap('.topbar .icon-btn');
+    await d.wait(100);
+    await d.key('Escape');
+    for (let i = 0; i < 4; i++) {
+      const mine = await d.js(() => !!document.querySelector('.hand .card[data-card]') && window.__scopa.state.hand.turn === 0 && window.__scopa.state.phase === 'play');
+      if (!mine) { await d.wait(200); continue; }
+      await d.tap('.hand .card[data-card]');
+      await d.wait(60);
+      if (await d.js(() => document.querySelectorAll('.tray .opt-btn').length > 0)) await d.tap('.tray .opt-btn');
+      else await d.tap('.hand .card.selected');
+      await d.wait(40);
+    }
+    d.ok('after the storm, every 3D card rests where the engine says', await d.waitFor(() => window.__scopa.scene.moving === 0 && window.__scopa.scene.mismatches.length === 0 && window.__scopa.domAnimations === 0, 20000), JSON.stringify(await d.js(() => window.__scopa.scene)));
+    const s = await d.js(() => { const h = window.__scopa.state.hand; return h.deck.length + h.table.length + h.hands.flat().length + h.captures.flat().length; });
+    d.ok('the engine state is intact (all 40 cards accounted for)', s === 40);
+    await d.waitFor(() => window.__scopa.scene.moving === 0);
+    const align = await d.js(alignment);
+    d.ok('the 3D cards are still under their DOM boxes', align.every((x) => x < 6), JSON.stringify(align.map(Math.round)));
+    await d.shot('74-3d-after-interruptions');
+  },
+
 };
 
 (async () => {

@@ -1,3 +1,4 @@
+import { enterSheet } from './anim.ts';
 type Attrs = Record<string, string | number | boolean | null | undefined | EventListener | Partial<CSSStyleDeclaration>>;
 type Child = Node | string | null | undefined | false | Child[];
 
@@ -65,6 +66,7 @@ export function confirmDialog(root: HTMLElement, title: string, body: string, ok
     const ov = h('div', { class: 'overlay', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'dlg-t', onkeydown: ((e: KeyboardEvent) => { if (e.key === 'Escape') close(false); }) as EventListener },
       h('div', { class: 'sheet' }, h('h2', { id: 'dlg-t' }, title), h('p', {}, body), h('div', { class: 'row end' }, h('button', { class: 'btn', onclick: () => close(false) }, cancelLabel), ok)));
     root.appendChild(ov);
+    enterSheet(ov);
     ok.focus();
   });
 }
